@@ -1,0 +1,22 @@
+pub mod scheduler;
+pub mod upsert_bico;
+pub mod upsert_configuracao;
+pub mod upsert_usuario;
+pub mod upsert_produto;
+pub mod upsert_forma_pagamento;
+pub mod upsert_parceiro;
+pub mod upsert_administradora;
+pub mod upsert_parceiro_dependente;
+pub mod upsert_parceiro_frota;
+pub mod upsert_parceiro_forma_pagamento;
+pub mod upsert_parceiro_tabela_forma_pagamento;
+pub mod upsert_parceiro_tabela;
+pub mod upsert_setor;
+pub mod upsert_produto_setor;
+pub mod upsert_tanque;
+pub mod upsert_tabela_preco;
+pub mod upsert_tabela_preco_item;
+pub mod upsert_usuario_permissao;
+pub mod upsert_vendedor;
+
+pub use scheduler::AtualizacaoScheduler;

@@ -1,0 +1,14 @@
+[package]
+name = "hill-common"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sqlx = { version = "0.7.4", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid", "rust_decimal"] }
+sea-orm = { version = "1.0", features = ["sqlx-postgres", "runtime-tokio-native-tls", "macros"] }
+uuid = { version = "1.8.0", features = ["v4", "serde"] }
+chrono = { version = "0.4.38", features = ["serde"] }
+rust_decimal = { version = "1.35.0", features = ["serde-float"] }
+serde = { version = "1.0.203", features = ["derive"] }
+tracing = "0.1.40"
+reqwest = { version = "0.12.4", features = ["json"] }
