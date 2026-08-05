@@ -237,19 +237,24 @@ fn normalize_log_level(level: &str) -> &'static str {
 
 fn setup_logging(
     log_dir: &std::path::Path,
+    file_level: &str,
     console_level: &str,
     console_enabled: bool,
 ) -> Option<tracing_appender::non_blocking::WorkerGuard> {
 
-    // Daily rotating file appender (e.g. monitor.log.2026-08-04)
-    // Note: tracing_appender rolling appends the date suffix automatically
-    let file_appender = tracing_appender::rolling::daily(log_dir, "monitor.log");
+    // Daily rotating file appender (e.g. monitor.2026-08-05.log)
+    let file_appender = tracing_appender::rolling::RollingFileAppender::builder()
+        .rotation(tracing_appender::rolling::Rotation::DAILY)
+        .filename_prefix("monitor")
+        .filename_suffix("log")
+        .build(log_dir)
+        .expect("falha ao configurar o arquivo de log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     let file_layer = tracing_subscriber::fmt::layer()
         .with_writer(non_blocking)
         .with_ansi(false)
-        .with_filter(tracing_subscriber::EnvFilter::new("warn"));
+        .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(file_level)));
 
     #[cfg(target_os = "windows")]
     let console_layer = if console_enabled {
@@ -316,8 +321,8 @@ async fn main() {
 DB_IP=localhost
 DB_PORTA=5432
 LOG_SQL=F
-LOG=INFO
-LOG_TERMINAL=INFO
+LOG=ERROR
+LOG_TERMINAL=ERROR
 EXIBIR_TERMINAL=F
 FABRICANTE=companytec
 ";
@@ -344,14 +349,19 @@ FABRICANTE=companytec
     } else {
         "off"
     };
-    let _guard = setup_logging(&log_dir, console_level, is_enabled_flag(&ini.exibir_terminal));
+    let _guard = setup_logging(
+        &log_dir,
+        &ini.log,
+        console_level,
+        is_enabled_flag(&ini.exibir_terminal),
+    );
 
     info!("Iniciando hill-monitor...");
     info!("Lendo arquivo de configuração de: {:?}", ini_path);
     info!("Configuração carregada com sucesso.");
     info!("DB IP: {}", ini.db_ip);
     info!("DB Porta: {}", ini.db_porta);
-    info!("Log arquivo: WARN");
+    info!("Log arquivo: {}", ini.log);
     info!("Log terminal: {}", ini.log_terminal);
     info!("Exibir terminal: {}", ini.exibir_terminal);
     info!("SQL Log: {}", ini.log_sql);
