@@ -1,12 +1,17 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
 use hill_common::entity::bico;
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
 pub async fn upsert_bicos(db: &DatabaseConnection, bicos: &[hill_common::entity::Bico]) -> Result<(), DbErr> {
     if bicos.is_empty() {
         return Ok(());
     }
 
-    let active_models: Vec<bico::ActiveModel> = bicos.iter().map(|bico| {
+    for bico in bicos {
+        if let Some(existing) = bico::Entity::find_by_id(bico.id).one(db).await? {
+            let existing: bico::ActiveModel = existing.into();
+            existing.delete(db).await?;
+        }
+
         bico::ActiveModel {
             id: ActiveValue::Set(bico.id),
             status: ActiveValue::Set(bico.status.clone()),
@@ -30,17 +35,9 @@ pub async fn upsert_bicos(db: &DatabaseConnection, bicos: &[hill_common::entity:
             sincroniza_preco_data_hora: ActiveValue::Set(bico.sincroniza_preco_data_hora),
             sincroniza_preco_alterado: ActiveValue::Set(bico.sincroniza_preco_alterado.clone()),
         }
-    }).collect();
-
-    use sea_orm::{Iterable, IdenStatic};
-    bico::Entity::insert_many(active_models)
-        .on_conflict(
-            OnConflict::column(bico::Column::Id)
-                .update_columns(bico::Column::iter().filter(|col| col.as_str() != "id"))
-                .to_owned()
-        )
-        .exec(db)
+        .insert(db)
         .await?;
+    }
 
     Ok(())
 }

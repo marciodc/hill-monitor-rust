@@ -4,10 +4,9 @@ use std::path::Path;
 
 #[derive(Debug, Clone, Default)]
 pub struct IniFile {
-    pub pdv: String,
     pub db_ip: String,
     pub db_porta: String,
-    pub monitor_url: String,
+    pub log_sql: String,
     pub log: String,
     pub log_terminal: String,
     pub fabricante: String,
@@ -32,10 +31,9 @@ impl IniFile {
                 let val = val.trim();
 
                 match key {
-                    "PDV" => ini.pdv = val.to_string(),
                     "DB_IP" => ini.db_ip = val.to_string(),
                     "DB_PORTA" => ini.db_porta = val.to_string(),
-                    "MONITOR_URL" => ini.monitor_url = val.to_string(),
+                    "LOG_SQL" => ini.log_sql = val.to_string(),
                     "LOG" => ini.log = val.to_string(),
                     "LOG_TERMINAL" => ini.log_terminal = val.to_string(),
                     "FABRICANTE" => ini.fabricante = val.to_string(),

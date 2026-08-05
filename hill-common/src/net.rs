@@ -1,5 +1,6 @@
 use reqwest::Client;
 use std::time::Duration;
+use tracing::debug;
 
 #[derive(Clone)]
 pub struct HttpConn {
@@ -28,6 +29,9 @@ impl HttpConn {
         payload_str: &str,
         token: &str,
     ) -> Result<String, reqwest::Error> {
+        debug!("HTTP POST {}", url);
+        debug!("HTTP POST payload: {}", payload_str);
+
         let response = self.client
             .post(url)
             .header("Authorization", token)
@@ -37,7 +41,9 @@ impl HttpConn {
             .await?;
 
         let response = response.error_for_status()?;
-        response.text().await
+        let body = response.text().await?;
+        debug!("HTTP POST response body: {}", body);
+        Ok(body)
     }
 
     pub async fn get_json_servidor(
@@ -45,6 +51,8 @@ impl HttpConn {
         url: &str,
         token: &str,
     ) -> Result<String, reqwest::Error> {
+        debug!("HTTP GET {}", url);
+
         let response = self.client
             .get(url)
             .header("Authorization", token)
@@ -53,6 +61,8 @@ impl HttpConn {
             .await?;
 
         let response = response.error_for_status()?;
-        response.text().await
+        let body = response.text().await?;
+        debug!("HTTP GET response body: {}", body);
+        Ok(body)
     }
 }

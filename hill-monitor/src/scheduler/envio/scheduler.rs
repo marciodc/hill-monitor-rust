@@ -5,20 +5,17 @@ use sea_orm::DatabaseConnection;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::time::{interval, Duration};
-use tracing::info;
-use uuid::Uuid;
+use tracing::{error, info};
 
 pub struct EnvioScheduler {
     db: DatabaseConnection,
-    pdv_uuid: Uuid,
     running: Arc<AtomicBool>,
 }
 
 impl EnvioScheduler {
-    pub fn new(db: DatabaseConnection, pdv_uuid: Uuid) -> Self {
+    pub fn new(db: DatabaseConnection) -> Self {
         Self {
             db,
-            pdv_uuid,
             running: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -26,7 +23,6 @@ impl EnvioScheduler {
     pub fn start(&self) {
         let db = self.db.clone();
         let running = self.running.clone();
-        let pdv_uuid = self.pdv_uuid;
 
         running.store(true, Ordering::SeqCst);
 
@@ -41,36 +37,66 @@ impl EnvioScheduler {
                 interval.tick().await;
 
                 // Fetch parameters dynamically
-                let backend_url = match config_helper.get_parametro("PDV_BackendURL", Some(pdv_uuid)).await {
+                let backend_url = match config_helper.get_parametro("Backend_URL", None).await {
                     Ok(Some(url)) if !url.is_empty() => url,
                     _ => {
-                        info!("PDV_BackendURL não configurada. Ignorando envio.");
+                        info!("Backend_URL não configurada. Ignorando envio.");
                         continue;
                     }
                 };
 
-                let token = match config_helper.get_parametro("PDV_Token", Some(pdv_uuid)).await {
+                let token = match config_helper.get_parametro("Backend_Token", None).await {
                     Ok(Some(t)) if !t.is_empty() => t,
                     _ => {
-                        info!("PDV_Token não configurado. Ignorando envio.");
+                        info!("Backend_Token não configurado. Ignorando envio.");
                         continue;
                     }
                 };
 
-                // Fetch PDV config for Empresa and TipoEstabelecimento
-                let (empresa_id, tipo_estabelecimento) = match config_helper.get_config_by_pdv(pdv_uuid).await {
-                    Ok(Some(conf)) => (conf.empresa, conf.tipo_estabelecimento.unwrap_or_default()),
-                    _ => (0, String::new()),
+                let configuracoes = match config_helper.list_configuracoes().await {
+                    Ok(configs) => configs,
+                    Err(e) => {
+                        error!("Erro ao carregar PDVs para envio: {:?}", e);
+                        continue;
+                    }
                 };
 
-                // 1. Envio de Abastecimentos e Aferições (somente se for Posto)
+                let Some(configuracao) = configuracoes.first() else {
+                    info!("Nenhuma configuração local disponível. Ignorando envio.");
+                    continue;
+                };
+
+                let empresa_id = configuracao.empresa;
+                let tipo_estabelecimento = configuracao.tipo_estabelecimento.clone().unwrap_or_default();
+
                 if tipo_estabelecimento == "posto" || tipo_estabelecimento.is_empty() {
-                    let _ = abastecimento::envia_abastecimentos(&db, &http, &backend_url, &token, empresa_id).await;
-                    let _ = afericao::envia_afericoes(&db, &http, &backend_url, &token, empresa_id).await;
+                    let _ = abastecimento::envia_abastecimentos(
+                        &db,
+                        &http,
+                        &backend_url,
+                        &token,
+                        empresa_id,
+                    )
+                    .await;
+                    let _ = afericao::envia_afericoes(
+                        &db,
+                        &http,
+                        &backend_url,
+                        &token,
+                        empresa_id,
+                    )
+                    .await;
                 }
 
-                // 2. Envio de Vendas
-                let _ = venda::envia_vendas(&db, pdv_uuid, &http, &backend_url, &token, empresa_id, &tipo_estabelecimento).await;
+                let _ = venda::envia_vendas(
+                    &db,
+                    &http,
+                    &backend_url,
+                    &token,
+                    empresa_id,
+                    &tipo_estabelecimento,
+                )
+                .await;
             }
             info!("EnvioScheduler parado.");
         });

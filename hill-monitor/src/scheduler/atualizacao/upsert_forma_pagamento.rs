@@ -1,12 +1,17 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
 use hill_common::entity::forma_pagamento;
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
 pub async fn upsert_formas_pagamento(db: &DatabaseConnection, formas: &[hill_common::entity::FormaPagamento]) -> Result<(), DbErr> {
     if formas.is_empty() {
         return Ok(());
     }
 
-    let active_models: Vec<forma_pagamento::ActiveModel> = formas.iter().map(|fp| {
+    for fp in formas {
+        if let Some(existing) = forma_pagamento::Entity::find_by_id(fp.id).one(db).await? {
+            let existing: forma_pagamento::ActiveModel = existing.into();
+            existing.delete(db).await?;
+        }
+
         forma_pagamento::ActiveModel {
             id: ActiveValue::Set(fp.id),
             numero: ActiveValue::Set(fp.numero),
@@ -39,17 +44,9 @@ pub async fn upsert_formas_pagamento(db: &DatabaseConnection, formas: &[hill_com
             troco_em_deposito: ActiveValue::Set(fp.troco_em_deposito.clone()),
             vendas_com_juros_mobile: ActiveValue::Set(fp.vendas_com_juros_mobile.clone()),
         }
-    }).collect();
-
-    use sea_orm::{Iterable, IdenStatic};
-    forma_pagamento::Entity::insert_many(active_models)
-        .on_conflict(
-            OnConflict::column(forma_pagamento::Column::Id)
-                .update_columns(forma_pagamento::Column::iter().filter(|col| col.as_str() != "id"))
-                .to_owned()
-        )
-        .exec(db)
+        .insert(db)
         .await?;
+    }
 
     Ok(())
 }

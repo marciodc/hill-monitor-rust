@@ -1,4 +1,4 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 use hill_common::entity::configuracao;
 
 pub async fn upsert_configuracoes(db: &DatabaseConnection, configs: &[hill_common::entity::Configuracao]) -> Result<(), DbErr> {
@@ -6,7 +6,12 @@ pub async fn upsert_configuracoes(db: &DatabaseConnection, configs: &[hill_commo
         return Ok(());
     }
 
-    let active_models: Vec<configuracao::ActiveModel> = configs.iter().map(|config| {
+    for config in configs {
+        if let Some(existing) = configuracao::Entity::find_by_id(config.id).one(db).await? {
+            let existing: configuracao::ActiveModel = existing.into();
+            existing.delete(db).await?;
+        }
+
         configuracao::ActiveModel {
             id: ActiveValue::Set(config.id),
             pdv_numero: ActiveValue::Set(config.pdv_numero),
@@ -62,7 +67,7 @@ pub async fn upsert_configuracoes(db: &DatabaseConnection, configs: &[hill_commo
             versao_retaguarda: ActiveValue::Set(config.versao_retaguarda.clone()),
             senha_usuario_ativo: ActiveValue::Set(config.senha_usuario_ativo.clone()),
             efetuar_sangria_usuario: ActiveValue::Set(config.efetuar_sangria_usuario.clone()),
-            valor_maximo_nfce: ActiveValue::Set(config.valor_maximo_nfce),
+            vlr_max_nfce: ActiveValue::Set(config.vlr_max_nfce),
             exibir_limite_cliente: ActiveValue::Set(config.exibir_limite_cliente.clone()),
             emissao_direta_nf_pj: ActiveValue::Set(config.emissao_direta_nf_pj.clone()),
             lista_todos_abastecimentos_pdv: ActiveValue::Set(config.lista_todos_abastecimentos_pdv.clone()),
@@ -70,17 +75,9 @@ pub async fn upsert_configuracoes(db: &DatabaseConnection, configs: &[hill_commo
             token_csc: ActiveValue::Set(config.token_csc.clone()),
             controle_estoque_combustivel: ActiveValue::Set(config.controle_estoque_combustivel.clone()),
         }
-    }).collect();
-
-    use sea_orm::{Iterable, IdenStatic};
-    configuracao::Entity::insert_many(active_models)
-        .on_conflict(
-            OnConflict::column(configuracao::Column::Id)
-                .update_columns(configuracao::Column::iter().filter(|col| col.as_str() != "id"))
-                .to_owned()
-        )
-        .exec(db)
+        .insert(db)
         .await?;
+    }
 
     Ok(())
 }

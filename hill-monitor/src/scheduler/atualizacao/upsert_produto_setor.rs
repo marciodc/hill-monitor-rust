@@ -1,5 +1,5 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
 use hill_common::entity::produto_setor;
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
 pub async fn upsert_produtos_setores(
     db: &DatabaseConnection,
@@ -9,24 +9,20 @@ pub async fn upsert_produtos_setores(
         return Ok(());
     }
 
-    let active_models: Vec<produto_setor::ActiveModel> = setores
-        .iter()
-        .map(|s| produto_setor::ActiveModel {
+    for s in setores {
+        if let Some(existing) = produto_setor::Entity::find_by_id(s.id).one(db).await? {
+            let existing: produto_setor::ActiveModel = existing.into();
+            existing.delete(db).await?;
+        }
+
+        produto_setor::ActiveModel {
             id: ActiveValue::Set(s.id),
             setor_id: ActiveValue::Set(s.setor_id),
             produto_id: ActiveValue::Set(s.produto_id),
-        })
-        .collect();
-
-    use sea_orm::{Iterable, IdenStatic};
-    produto_setor::Entity::insert_many(active_models)
-        .on_conflict(
-            OnConflict::column(produto_setor::Column::Id)
-                .update_columns(produto_setor::Column::iter().filter(|col| col.as_str() != "id"))
-                .to_owned(),
-        )
-        .exec(db)
+        }
+        .insert(db)
         .await?;
+    }
 
     Ok(())
 }

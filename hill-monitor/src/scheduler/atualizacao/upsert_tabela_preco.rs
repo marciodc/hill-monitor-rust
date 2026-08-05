@@ -1,5 +1,5 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
 use hill_common::entity::tabela_preco;
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
 pub async fn upsert_tabela_precos(
     db: &DatabaseConnection,
@@ -9,26 +9,22 @@ pub async fn upsert_tabela_precos(
         return Ok(());
     }
 
-    let active_models: Vec<tabela_preco::ActiveModel> = precos
-        .iter()
-        .map(|t| tabela_preco::ActiveModel {
+    for t in precos {
+        if let Some(existing) = tabela_preco::Entity::find_by_id(t.id).one(db).await? {
+            let existing: tabela_preco::ActiveModel = existing.into();
+            existing.delete(db).await?;
+        }
+
+        tabela_preco::ActiveModel {
             id: ActiveValue::Set(t.id),
             status: ActiveValue::Set(t.status.clone()),
             padrao: ActiveValue::Set(t.padrao.clone()),
             descricao: ActiveValue::Set(t.descricao.clone()),
             exclusiva_cliente: ActiveValue::Set(t.exclusiva_cliente.clone()),
-        })
-        .collect();
-
-    use sea_orm::{Iterable, IdenStatic};
-    tabela_preco::Entity::insert_many(active_models)
-        .on_conflict(
-            OnConflict::column(tabela_preco::Column::Id)
-                .update_columns(tabela_preco::Column::iter().filter(|col| col.as_str() != "id"))
-                .to_owned(),
-        )
-        .exec(db)
+        }
+        .insert(db)
         .await?;
+    }
 
     Ok(())
 }

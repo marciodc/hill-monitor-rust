@@ -1,6 +1,7 @@
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, QuerySelect};
 use hill_common::entity::afericao;
 use hill_common::net::HttpConn;
+use crate::backend_url::sync_send_url;
 use tracing::{error, info};
 
 #[derive(serde::Deserialize)]
@@ -57,9 +58,17 @@ pub async fn envia_afericoes(
             ]
         });
 
-        let url_with_query = format!("{}&tipo=afericao", backend_url);
+        let url_with_query = sync_send_url(backend_url, "afericao");
+        info!(
+            "EnvioDadosAfericao - Enviando aferição {} para {}",
+            id, url_with_query
+        );
         match http.post_json_servidor(&url_with_query, &payload.to_string(), token).await {
             Ok(response_body) => {
+                info!(
+                    "EnvioDadosAfericao - Resposta HTTP recebida para aferição {}",
+                    id
+                );
                 if let Ok(result) = serde_json::from_str::<SincronizacaoResponse>(&response_body) {
                     if result.afericao.and_then(|r| r.result).as_deref() == Some("success") {
                         let res = afericao::Entity::update_many()

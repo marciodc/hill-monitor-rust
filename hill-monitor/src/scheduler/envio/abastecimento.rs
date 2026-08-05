@@ -1,6 +1,7 @@
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, QuerySelect};
 use hill_common::entity::abastecimento;
 use hill_common::net::HttpConn;
+use crate::backend_url::sync_send_url;
 use tracing::{error, info};
 
 #[derive(serde::Deserialize)]
@@ -66,9 +67,17 @@ pub async fn envia_abastecimentos(
             ]
         });
 
-        let url_with_query = format!("{}&tipo=abastecimentos", backend_url);
+        let url_with_query = sync_send_url(backend_url, "abastecimentos");
+        info!(
+            "EnvioDadosAbastecimento - Enviando abastecimento {} para {}",
+            id, url_with_query
+        );
         match http.post_json_servidor(&url_with_query, &payload.to_string(), token).await {
             Ok(response_body) => {
+                info!(
+                    "EnvioDadosAbastecimento - Resposta HTTP recebida para abastecimento {}",
+                    id
+                );
                 if let Ok(result) = serde_json::from_str::<SincronizacaoResponse>(&response_body) {
                     if result.abastecimentos.and_then(|r| r.result).as_deref() == Some("success") {
                         let res = abastecimento::Entity::update_many()

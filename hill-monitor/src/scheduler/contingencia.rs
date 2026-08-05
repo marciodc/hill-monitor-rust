@@ -1,40 +1,52 @@
+use hill_common::config_helper::ConfigHelper;
 use sea_orm::DatabaseConnection;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::time::{interval, Duration};
-use tracing::info;
-use uuid::Uuid;
+use tracing::{error, info};
 
 pub struct ContingenciaScheduler {
     db: DatabaseConnection,
-    pdv_uuid: Uuid,
     running: Arc<AtomicBool>,
 }
 
 impl ContingenciaScheduler {
-    pub fn new(db: DatabaseConnection, pdv_uuid: Uuid) -> Self {
+    pub fn new(db: DatabaseConnection) -> Self {
         Self {
             db,
-            pdv_uuid,
             running: Arc::new(AtomicBool::new(false)),
         }
     }
 
     pub fn start(&self) {
-        let _db = self.db.clone();
+        let db = self.db.clone();
         let running = self.running.clone();
-        let pdv_uuid = self.pdv_uuid;
 
         running.store(true, Ordering::SeqCst);
 
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(30)); // Roda a cada 30 segundos
+            let config_helper = ConfigHelper::new(db);
             info!("ContingenciaScheduler iniciado.");
 
             while running.load(Ordering::SeqCst) {
                 interval.tick().await;
-                info!("ContingenciaScheduler processando contingência para o PDV: {}", pdv_uuid);
-                
+
+                let configuracoes = match config_helper.list_configuracoes().await {
+                    Ok(configs) => configs,
+                    Err(e) => {
+                        error!("Erro ao carregar PDVs para contingência: {:?}", e);
+                        continue;
+                    }
+                };
+
+                for configuracao in configuracoes {
+                    info!(
+                        "ContingenciaScheduler processando contingência para o PDV: {:?}",
+                        configuracao.id
+                    );
+                }
+
                 // TODO: Chamar o processo de envio de NFCe em contingência
             }
             info!("ContingenciaScheduler parado.");

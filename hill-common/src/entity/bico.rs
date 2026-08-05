@@ -11,7 +11,7 @@ pub struct Model {
     pub numero: i32,
     pub bomba: i32,
     pub tanque_id: i32,
-    pub bloqueio_quantidade: i32,
+    pub bloqueio_quantidade: Decimal,
     pub setor_id: i32,
     pub produto_id: i32,
     pub gtin: Option<String>,
@@ -20,6 +20,7 @@ pub struct Model {
     pub valor_unitario_credito: Decimal,
     pub combustivel: Option<String>,
     pub altera_preco: Option<String>,
+    #[sea_orm(column_name = "tabela_preco_id")]
     pub tabelapreco_id: i32,
     pub tipo_combustivel: Option<String>,
     pub abastecimento_manual: Option<String>,

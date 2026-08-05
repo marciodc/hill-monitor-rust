@@ -1,12 +1,17 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
 use hill_common::entity::parceiro;
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
 pub async fn upsert_parceiros(db: &DatabaseConnection, parceiros: &[hill_common::entity::Parceiro]) -> Result<(), DbErr> {
     if parceiros.is_empty() {
         return Ok(());
     }
 
-    let active_models: Vec<parceiro::ActiveModel> = parceiros.iter().map(|p| {
+    for p in parceiros {
+        if let Some(existing) = parceiro::Entity::find_by_id(p.id).one(db).await? {
+            let existing: parceiro::ActiveModel = existing.into();
+            existing.delete(db).await?;
+        }
+
         parceiro::ActiveModel {
             id: ActiveValue::Set(p.id),
             status: ActiveValue::Set(p.status.clone()),
@@ -32,17 +37,9 @@ pub async fn upsert_parceiros(db: &DatabaseConnection, parceiros: &[hill_common:
             email: ActiveValue::Set(p.email.clone()),
             rfid: ActiveValue::Set(p.rfid.clone()),
         }
-    }).collect();
-
-    use sea_orm::{Iterable, IdenStatic};
-    parceiro::Entity::insert_many(active_models)
-        .on_conflict(
-            OnConflict::column(parceiro::Column::Id)
-                .update_columns(parceiro::Column::iter().filter(|col| col.as_str() != "id"))
-                .to_owned()
-        )
-        .exec(db)
+        .insert(db)
         .await?;
+    }
 
     Ok(())
 }

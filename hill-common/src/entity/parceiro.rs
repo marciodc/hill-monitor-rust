@@ -13,12 +13,8 @@ pub struct Model {
     pub inscricao_municipal: Option<String>,
     pub nome_fantasia: Option<String>,
     pub razao_social: Option<String>,
-    #[sea_orm(column_name = "endereco")]
-    #[serde(rename = "endereco")]
     pub logradouro: Option<String>,
     pub complemento: Option<String>,
-    #[sea_orm(column_name = "endereco_numero")]
-    #[serde(rename = "endereco_numero")]
     pub numero: Option<String>,
     pub bairro: Option<String>,
     pub municipio: Option<String>,
@@ -28,8 +24,6 @@ pub struct Model {
     pub requer_placa: Option<String>,
     pub requer_km: Option<String>,
     pub requer_condutor: Option<String>,
-    #[sea_orm(column_name = "desconto_cupom")]
-    #[serde(rename = "desconto_cupom")]
     pub desconto_venda: Decimal,
     pub limite_disponivel: Decimal,
     pub email: Option<String>,

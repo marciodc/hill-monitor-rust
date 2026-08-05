@@ -1,6 +1,7 @@
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, QuerySelect};
 use hill_common::entity::{venda, venda_item, venda_pagamento, abastecimento};
 use hill_common::net::HttpConn;
+use crate::backend_url::sync_send_url;
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -16,7 +17,6 @@ struct SincronizacaoResult {
 
 pub async fn envia_vendas(
     db: &DatabaseConnection,
-    pdv_uuid: Uuid,
     http: &HttpConn,
     backend_url: &str,
     token: &str,
@@ -177,7 +177,7 @@ pub async fn envia_vendas(
             "venda": [
                 {
                     "empresa_id": empresa_id.to_string(),
-                    "pdv_id": pdv_uuid.to_string(),
+                    "pdv_id": v.pdv.to_string(),
                     "setor_id": v.setor_id.to_string(),
                     "status": v.status,
                     "tipo": v.tipo.as_deref().unwrap_or(""),
@@ -231,9 +231,14 @@ pub async fn envia_vendas(
             ]
         });
 
-        let url_with_query = format!("{}&tipo=venda", backend_url);
+        let url_with_query = sync_send_url(backend_url, "venda");
+        info!(
+            "EnvioDadosVenda - Enviando venda {} para {}",
+            id, url_with_query
+        );
         match http.post_json_servidor(&url_with_query, &payload.to_string(), token).await {
             Ok(response_body) => {
+                info!("EnvioDadosVenda - Resposta HTTP recebida para venda {}", id);
                 if let Ok(result) = serde_json::from_str::<SincronizacaoResponse>(&response_body) {
                     if result.venda.and_then(|r| r.result).as_deref() == Some("success") {
                         let res = venda::Entity::update_many()

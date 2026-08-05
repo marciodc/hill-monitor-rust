@@ -8,17 +8,21 @@ fn decrypt_credential(encrypted: &[u8], key: u8) -> String {
     String::from_utf8(decrypted).unwrap_or_default()
 }
 
-pub async fn establish_connection(db_ip: &str, db_port: &str) -> Result<DatabaseConnection, DbErr> {
+pub async fn establish_connection(
+    db_ip: &str,
+    db_port: &str,
+    log_sql: bool,
+) -> Result<DatabaseConnection, DbErr> {
     let db_ip = if db_ip.is_empty() { "localhost" } else { db_ip };
-    let db_port = if db_port.is_empty() { "5455" } else { db_port };
+    let db_port = if db_port.is_empty() { "5432" } else { db_port };
 
     // XOR key used for obfuscation
     const XOR_KEY: u8 = 0x5A;
 
     // XOR-obfuscated bytes for "postgres"
-    const ENC_USER: &[u8] = &[42, 37, 61, 46, 40, 63, 41];
+    const ENC_USER: &[u8] = &[42, 53, 41, 46, 61, 40, 63, 41];
     // XOR-obfuscated bytes for "H*9E9x3JlHdi"
-    const ENC_PASS: &[u8] = &[18, 112, 99, 23, 99, 34, 105, 16, 54, 18, 30, 19];
+    const ENC_PASS: &[u8] = &[18, 112, 99, 31, 99, 34, 105, 16, 54, 18, 62, 51];
 
     let db_user = decrypt_credential(ENC_USER, XOR_KEY);
     let db_pass = decrypt_credential(ENC_PASS, XOR_KEY);
@@ -34,11 +38,11 @@ pub async fn establish_connection(db_ip: &str, db_port: &str) -> Result<Database
     opt.max_connections(5)
         .min_connections(1)
         .connect_timeout(Duration::from_secs(8))
-        .idle_timeout(Duration::from_secs(8));
+        .idle_timeout(Duration::from_secs(8))
+        .sqlx_logging(log_sql);
 
     let db = Database::connect(opt).await?;
 
     info!("Conexão com o banco de dados estabelecida com sucesso.");
     Ok(db)
 }
-

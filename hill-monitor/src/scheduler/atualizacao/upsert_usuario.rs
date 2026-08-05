@@ -1,12 +1,17 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
 use hill_common::entity::usuario;
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
 pub async fn upsert_usuarios(db: &DatabaseConnection, usuarios: &[hill_common::entity::Usuario]) -> Result<(), DbErr> {
     if usuarios.is_empty() {
         return Ok(());
     }
 
-    let active_models: Vec<usuario::ActiveModel> = usuarios.iter().map(|user| {
+    for user in usuarios {
+        if let Some(existing) = usuario::Entity::find_by_id(user.id).one(db).await? {
+            let existing: usuario::ActiveModel = existing.into();
+            existing.delete(db).await?;
+        }
+
         usuario::ActiveModel {
             id: ActiveValue::Set(user.id),
             status: ActiveValue::Set(user.status.clone()),
@@ -23,17 +28,9 @@ pub async fn upsert_usuarios(db: &DatabaseConnection, usuarios: &[hill_common::e
             perc_max_desc_acres_subtotal: ActiveValue::Set(user.perc_max_desc_acres_subtotal),
             valor_max_desc_acres_subtotal: ActiveValue::Set(user.valor_max_desc_acres_subtotal),
         }
-    }).collect();
-
-    use sea_orm::{Iterable, IdenStatic};
-    usuario::Entity::insert_many(active_models)
-        .on_conflict(
-            OnConflict::column(usuario::Column::Id)
-                .update_columns(usuario::Column::iter().filter(|col| col.as_str() != "id"))
-                .to_owned()
-        )
-        .exec(db)
+        .insert(db)
         .await?;
+    }
 
     Ok(())
 }

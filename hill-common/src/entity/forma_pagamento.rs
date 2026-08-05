@@ -7,8 +7,6 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: i32,
     pub numero: i32,
-    #[sea_orm(column_name = "forma_pagamento")]
-    #[serde(rename = "forma_pagamento")]
     pub tipo_pagamento: i32,
     pub descricao: String,
     pub valor_aviso_sangria: Decimal,
@@ -21,16 +19,12 @@ pub struct Model {
     pub maximo_parcelas: i32,
     pub tef_rede: Option<String>,
     pub tef_operacao: i32,
-    #[sea_orm(column_name = "ativo_voucher")]
-    #[serde(rename = "ativo_voucher")]
     pub voucher: Option<String>,
     pub ignora_limite_troco: Option<String>,
     pub solicita_vencimento: Option<String>,
     pub valida_limite_credito: Option<String>,
     pub espelho: Option<String>,
     pub dias_vencimento: Option<String>,
-    #[sea_orm(column_name = "tipo")]
-    #[serde(rename = "tipo")]
     pub tipo_venda: Option<String>,
     pub tabela_id: i32,
     pub permite_cheque_troco: Option<String>,

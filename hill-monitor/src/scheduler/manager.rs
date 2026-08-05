@@ -2,7 +2,6 @@ use crate::scheduler::atualizacao::AtualizacaoScheduler;
 use crate::scheduler::contingencia::ContingenciaScheduler;
 use crate::scheduler::envio::EnvioScheduler;
 use sea_orm::DatabaseConnection;
-use uuid::Uuid;
 
 pub struct MonitorSchedulers {
     atualizacao: AtualizacaoScheduler,
@@ -11,11 +10,11 @@ pub struct MonitorSchedulers {
 }
 
 impl MonitorSchedulers {
-    pub fn new(db: DatabaseConnection, pdv_uuid: Uuid) -> Self {
+    pub fn new(db: DatabaseConnection) -> Self {
         Self {
-            atualizacao: AtualizacaoScheduler::new(db.clone(), pdv_uuid),
-            contingencia: ContingenciaScheduler::new(db.clone(), pdv_uuid),
-            envio: EnvioScheduler::new(db, pdv_uuid),
+            atualizacao: AtualizacaoScheduler::new(db.clone()),
+            contingencia: ContingenciaScheduler::new(db.clone()),
+            envio: EnvioScheduler::new(db),
         }
     }
 

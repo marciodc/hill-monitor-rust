@@ -1,12 +1,17 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
 use hill_common::entity::produto;
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
 pub async fn upsert_produtos(db: &DatabaseConnection, produtos: &[hill_common::entity::Produto]) -> Result<(), DbErr> {
     if produtos.is_empty() {
         return Ok(());
     }
 
-    let active_models: Vec<produto::ActiveModel> = produtos.iter().map(|prod| {
+    for prod in produtos {
+        if let Some(existing) = produto::Entity::find_by_id(prod.id).one(db).await? {
+            let existing: produto::ActiveModel = existing.into();
+            existing.delete(db).await?;
+        }
+
         produto::ActiveModel {
             id: ActiveValue::Set(prod.id),
             tipo: ActiveValue::Set(prod.tipo.clone()),
@@ -69,17 +74,9 @@ pub async fn upsert_produtos(db: &DatabaseConnection, produtos: &[hill_common::e
             pgni: ActiveValue::Set(prod.pgni),
             vpart: ActiveValue::Set(prod.vpart),
         }
-    }).collect();
-
-    use sea_orm::{Iterable, IdenStatic};
-    produto::Entity::insert_many(active_models)
-        .on_conflict(
-            OnConflict::column(produto::Column::Id)
-                .update_columns(produto::Column::iter().filter(|col| col.as_str() != "id"))
-                .to_owned()
-        )
-        .exec(db)
+        .insert(db)
         .await?;
+    }
 
     Ok(())
 }

@@ -24,6 +24,10 @@ impl ConfigHelper {
             .await
     }
 
+    pub async fn list_configuracoes(&self) -> Result<Vec<Configuracao>, DbErr> {
+        configuracao::Entity::find().all(&self.db).await
+    }
+
     pub async fn get_parametro(&self, chave: &str, pdv: Option<Uuid>) -> Result<Option<String>, DbErr> {
         let mut query = parametro::Entity::find()
             .filter(parametro::Column::Chave.eq(chave));

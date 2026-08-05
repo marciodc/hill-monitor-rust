@@ -1,4 +1,6 @@
 pub mod scheduler;
+pub mod dto;
+pub mod mapper;
 pub mod upsert_bico;
 pub mod upsert_configuracao;
 pub mod upsert_usuario;
