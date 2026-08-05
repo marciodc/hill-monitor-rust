@@ -1,12 +1,26 @@
 use axum::{
+    extract::Request,
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
-    response::IntoResponse,
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
 };
 use hill_common::event::{get_event_bus, TipoEvento};
 use tracing::{error, info};
 
-pub async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
-    ws.on_upgrade(|socket| handle_socket(socket))
+use crate::web::auth;
+use crate::web::service::response::ApiResponse;
+
+pub async fn ws_handler(ws: WebSocketUpgrade, request: Request) -> Response {
+    if !auth::is_valid_authorization(request.headers().get(header::AUTHORIZATION)) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ApiResponse::<()>::err("Token inválido")),
+        )
+            .into_response();
+    }
+
+    ws.on_upgrade(|socket| handle_socket(socket)).into_response()
 }
 
 async fn handle_socket(mut socket: WebSocket) {

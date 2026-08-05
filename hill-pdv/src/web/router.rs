@@ -1,4 +1,5 @@
-use crate::web::controller;
+use crate::web::{auth, controller};
+use axum::middleware;
 use axum::routing::{get, post};
 use axum::Router;
 use sea_orm::DatabaseConnection;
@@ -61,6 +62,7 @@ pub fn create_router(db: DatabaseConnection) -> Router {
             get(controller::nfce::enviar_nfe),
         )
         .route("/ws", get(super::websocket::ws_handler))
+        .layer(middleware::from_fn(auth::require_bearer_token))
         .with_state(db)
         .layer(CorsLayer::permissive())
 }
