@@ -14,16 +14,22 @@ fn spawn_windows_tray() {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use std::ptr;
-    use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
     use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::UI::Shell::{
         Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NOTIFYICONDATAW,
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, LoadImageW,
-        RegisterClassW, TranslateMessage, CW_USEDEFAULT, HICON, IMAGE_ICON, LR_DEFAULTSIZE,
-        LR_LOADFROMFILE, MSG, WINDOW_EX_STYLE, WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW,
+        AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
+        DispatchMessageW, GetCursorPos, GetMessageW, LoadImageW, PostQuitMessage, RegisterClassW,
+        SetForegroundWindow, TrackPopupMenu, TranslateMessage, CW_USEDEFAULT, HICON, HMENU,
+        IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, MF_STRING, MSG, TPM_BOTTOMALIGN,
+        TPM_LEFTALIGN, TPM_LEFTBUTTON, WINDOW_EX_STYLE, WM_COMMAND, WM_DESTROY, WM_RBUTTONUP,
+        WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW,
     };
+
+    const WM_TRAYICON: u32 = WM_USER + 1;
+    const ID_TRAY_EXIT: usize = 1001;
 
     unsafe extern "system" fn window_proc(
         hwnd: HWND,
@@ -31,7 +37,53 @@ fn spawn_windows_tray() {
         wparam: WPARAM,
         lparam: LPARAM,
     ) -> LRESULT {
-        unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+        match msg {
+            WM_COMMAND => {
+                if wparam == ID_TRAY_EXIT {
+                    info!("Sair selecionado via menu da bandeja. Finalizando.");
+                    unsafe { PostQuitMessage(0) };
+                    std::process::exit(0);
+                }
+                0
+            }
+            WM_TRAYICON => {
+                if lparam as u32 == WM_RBUTTONUP {
+                    let menu: HMENU = unsafe { CreatePopupMenu() };
+                    if !menu.is_null() {
+                        let exit_label = to_wstring(OsStr::new("Sair"));
+                        unsafe {
+                            AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, exit_label.as_ptr());
+                            SetForegroundWindow(hwnd);
+                        }
+
+                        let mut point = POINT { x: 0, y: 0 };
+                        if unsafe { GetCursorPos(&mut point) } != 0 {
+                            unsafe {
+                                TrackPopupMenu(
+                                    menu,
+                                    TPM_LEFTALIGN | TPM_BOTTOMALIGN | TPM_LEFTBUTTON,
+                                    point.x,
+                                    point.y,
+                                    0,
+                                    hwnd,
+                                    ptr::null(),
+                                );
+                            }
+                        }
+
+                        unsafe { DestroyMenu(menu) };
+                    }
+                    0
+                } else {
+                    unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+                }
+            }
+            WM_DESTROY => {
+                unsafe { PostQuitMessage(0) };
+                0
+            }
+            _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+        }
     }
 
     fn to_wstring(value: &OsStr) -> Vec<u16> {
@@ -106,7 +158,7 @@ fn spawn_windows_tray() {
         nid.hWnd = hwnd;
         nid.uID = 1;
         nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
-        nid.uCallbackMessage = WM_USER + 1;
+        nid.uCallbackMessage = WM_TRAYICON;
         nid.hIcon = icon;
 
         let tip = to_wstring(OsStr::new("Hill Monitor"));
