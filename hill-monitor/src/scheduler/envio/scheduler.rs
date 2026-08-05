@@ -70,14 +70,14 @@ impl EnvioScheduler {
                 let tipo_estabelecimento = configuracao.tipo_estabelecimento.clone().unwrap_or_default();
 
                 if tipo_estabelecimento == "posto" || tipo_estabelecimento.is_empty() {
-                    let _ = abastecimento::envia_abastecimentos(
-                        &db,
-                        &http,
-                        &backend_url,
-                        &token,
-                        empresa_id,
-                    )
-                    .await;
+                    // let _ = abastecimento::envia_abastecimentos(
+                    //     &db,
+                    //     &http,
+                    //     &backend_url,
+                    //     &token,
+                    //     empresa_id,
+                    // )
+                    // .await;
                     let _ = afericao::envia_afericoes(
                         &db,
                         &http,
