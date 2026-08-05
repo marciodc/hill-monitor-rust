@@ -19,11 +19,38 @@ fn is_enabled_flag(value: &str) -> bool {
 
 #[cfg(target_os = "windows")]
 fn maybe_enable_debug_console(enabled: bool) {
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Storage::FileSystem::{
+        CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_READ,
+        FILE_SHARE_WRITE, OPEN_EXISTING,
+    };
     use windows_sys::Win32::System::Console::AllocConsole;
+    use windows_sys::Win32::System::Console::{STD_ERROR_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle};
+
+    fn to_wstring(value: &str) -> Vec<u16> {
+        value.encode_utf16().chain(Some(0)).collect()
+    }
 
     if enabled {
         unsafe {
             let _ = AllocConsole();
+
+            let conout = to_wstring("CONOUT$");
+            let handle = CreateFileW(
+                conout.as_ptr(),
+                FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                std::ptr::null(),
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL,
+                std::ptr::null_mut(),
+            );
+
+            if handle != INVALID_HANDLE_VALUE {
+                let _ = SetStdHandle(STD_OUTPUT_HANDLE, handle as HANDLE);
+                let _ = SetStdHandle(STD_ERROR_HANDLE, handle as HANDLE);
+                let _ = CloseHandle(handle);
+            }
         }
     }
 }
