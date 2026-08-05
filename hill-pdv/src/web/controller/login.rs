@@ -1,20 +1,44 @@
 use crate::web::service::login::LoginService;
+use hill_common::entity::Usuario;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
-use serde::{Deserialize, Serialize};
 use sea_orm::DatabaseConnection;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct LoginUser {
     pub login: String,
     pub senha: String,
+    pub pdv: Option<Uuid>,
+    pub acao: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct LoginResponse {
     pub status: bool,
     pub mensagem: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<Usuario>,
+}
+
+impl LoginResponse {
+    pub fn ok(mensagem: impl Into<String>, data: Option<Usuario>) -> Self {
+        Self {
+            status: true,
+            mensagem: mensagem.into(),
+            data,
+        }
+    }
+
+    pub fn err(mensagem: impl Into<String>) -> Self {
+        Self {
+            status: false,
+            mensagem: mensagem.into(),
+            data: None,
+        }
+    }
 }
 
 pub async fn autentica(
@@ -36,5 +60,9 @@ pub async fn valida_usuario(
 ) -> (StatusCode, Json<LoginResponse>) {
     let service = LoginService::new(db);
     let response = service.valida_usuario(payload).await;
-    (StatusCode::OK, Json(response))
+    if response.status {
+        (StatusCode::OK, Json(response))
+    } else {
+        (StatusCode::BAD_REQUEST, Json(response))
+    }
 }
