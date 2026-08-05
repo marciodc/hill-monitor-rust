@@ -238,6 +238,7 @@ fn normalize_log_level(level: &str) -> &'static str {
 fn setup_logging(
     log_dir: &std::path::Path,
     console_level: &str,
+    console_enabled: bool,
 ) -> Option<tracing_appender::non_blocking::WorkerGuard> {
 
     // Daily rotating file appender (e.g. monitor.log.2026-08-04)
@@ -250,6 +251,32 @@ fn setup_logging(
         .with_ansi(false)
         .with_filter(tracing_subscriber::EnvFilter::new("warn"));
 
+    #[cfg(target_os = "windows")]
+    let console_layer = if console_enabled {
+        tracing_subscriber::fmt::layer()
+            .with_writer(|| {
+                std::fs::OpenOptions::new()
+                    .write(true)
+                    .open("CONOUT$")
+                    .unwrap_or_else(|_| {
+                        std::fs::OpenOptions::new()
+                            .write(true)
+                            .open("NUL")
+                            .expect("falha ao abrir NUL")
+                    })
+            })
+            .with_ansi(false)
+            .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(console_level)))
+            .boxed()
+    } else {
+        tracing_subscriber::fmt::layer()
+            .with_writer(std::io::sink)
+            .with_ansi(false)
+            .with_filter(tracing_subscriber::EnvFilter::new("off"))
+            .boxed()
+    };
+
+    #[cfg(not(target_os = "windows"))]
     let console_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stdout)
         .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(console_level)));
@@ -317,7 +344,7 @@ FABRICANTE=companytec
     } else {
         "off"
     };
-    let _guard = setup_logging(&log_dir, console_level);
+    let _guard = setup_logging(&log_dir, console_level, is_enabled_flag(&ini.exibir_terminal));
 
     info!("Iniciando hill-monitor...");
     info!("Lendo arquivo de configuração de: {:?}", ini_path);
