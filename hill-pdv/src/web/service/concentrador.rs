@@ -7,7 +7,6 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct EncerrantePayload {
-    #[serde(rename = "Encerrante")]
     pub encerrante: Decimal,
 }
 
