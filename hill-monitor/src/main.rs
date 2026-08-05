@@ -154,9 +154,109 @@ FABRICANTE=companytec
         }
     };
 
-    if let Err(e) = axum::serve(listener, app).await {
-        error!("Erro na execução do Servidor Web Axum: {:?}", e);
+    tokio::spawn(async move {
+        if let Err(e) = axum::serve(listener, app).await {
+            error!("Erro na execução do Servidor Web Axum: {:?}", e);
+        }
+    });
+
+    // Inicialização do ícone da bandeja (System Tray)
+    #[cfg(target_os = "linux")]
+    {
+        struct MyTray {
+            icon_data: Vec<u8>,
+            width: i32,
+            height: i32,
+        }
+
+        impl ksni::Tray for MyTray {
+            fn id(&self) -> String {
+                "hill-monitor".to_string()
+            }
+
+            fn title(&self) -> String {
+                "Hill Monitor".to_string()
+            }
+
+            fn icon_pixmap(&self) -> Vec<ksni::Icon> {
+                vec![ksni::Icon {
+                    width: self.width,
+                    height: self.height,
+                    data: self.icon_data.clone(),
+                }]
+            }
+
+            fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
+                use ksni::menu::StandardItem;
+                vec![
+                    StandardItem {
+                        label: "Sair".to_string(),
+                        activate: Box::new(|_| {
+                            info!("Sair selecionado via menu da bandeja. Finalizando.");
+                            std::process::exit(0);
+                        }),
+                        ..Default::default()
+                    }
+                    .into()
+                ]
+            }
+        }
+
+        let png_bytes = include_bytes!("../Resource/app.png");
+        match image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png) {
+            Ok(img) => {
+                let rgba = img.into_rgba8();
+                let (width, height) = rgba.dimensions();
+                
+                // Convert RGBA to ARGB (required by ksni/dbus)
+                let mut argb = Vec::with_capacity(rgba.len());
+                for chunk in rgba.chunks_exact(4) {
+                    let r = chunk[0];
+                    let g = chunk[1];
+                    let b = chunk[2];
+                    let a = chunk[3];
+                    argb.push(a);
+                    argb.push(r);
+                    argb.push(g);
+                    argb.push(b);
+                }
+
+                let tray = MyTray {
+                    icon_data: argb,
+                    width: width as i32,
+                    height: height as i32,
+                };
+                let svc = ksni::TrayService::new(tray);
+                svc.spawn();
+            }
+            Err(e) => {
+                error!("Erro ao decodificar PNG embutido para a bandeja: {:?}", e);
+            }
+        }
     }
+
+    #[cfg(target_os = "windows")]
+    {
+        use tray_item::{TrayItem, IconSource};
+        let mut tray = match TrayItem::new("Hill Monitor", IconSource::Resource("IDI_ICON1")) {
+            Ok(t) => Some(t),
+            Err(e) => {
+                error!("Erro ao criar ícone de bandeja: {:?}", e);
+                None
+            }
+        };
+
+        if let Some(ref mut t) = tray {
+            let _ = t.add_menu_item("Sair", || {
+                info!("Sair selecionado via menu da bandeja. Finalizando.");
+                std::process::exit(0);
+            });
+        }
+    }
+
+    // Mantém a thread principal ativa indefinidamente
+    let (_tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let _ = rx.await;
 
     concentrador_scheduler.stop();
     monitor_schedulers.stop();
