@@ -12,6 +12,8 @@ pub fn create_router(db: DatabaseConnection) -> Router {
         .route("/login/valida-usuario", post(controller::login::valida_usuario))
         // Abastecimento endpoints
         .route("/abastecimentos", get(controller::abastecimentos::listar_abastecimentos))
+        // WebSocket endpoint
+        .route("/ws", get(super::websocket::ws_handler))
         // Share database connection pool via Axum State
         .with_state(db)
         .layer(CorsLayer::permissive())

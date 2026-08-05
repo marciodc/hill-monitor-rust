@@ -869,6 +869,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "sqlx",
+ "tokio",
  "tracing",
  "uuid",
 ]
@@ -899,6 +900,8 @@ dependencies = [
  "chrono",
  "hill-common",
  "hill-concentrador",
+ "hill-nfe",
+ "hill-pdv",
  "rust-ini",
  "rust_decimal",
  "sea-orm",
@@ -912,6 +915,30 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "uuid",
+ "winres",
+]
+
+[[package]]
+name = "hill-nfe"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "libloading",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "hill-pdv"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "hill-common",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower-http 0.5.2",
+ "tracing",
 ]
 
 [[package]]
@@ -1265,6 +1292,16 @@ name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+
+[[package]]
+name = "libloading"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
+dependencies = [
+ "cfg-if",
+ "windows-link",
+]
 
 [[package]]
 name = "libm"
@@ -2985,6 +3022,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "0.5.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "1.1.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3669,6 +3715,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winres"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b68db261ef59e9e52806f688020631e987592bd83619edccda9c47d42cde4f6c"
+dependencies = [
+ "toml",
 ]
 
 [[package]]

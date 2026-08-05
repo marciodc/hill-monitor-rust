@@ -12,3 +12,4 @@ rust_decimal = { version = "1.35.0", features = ["serde-float"] }
 serde = { version = "1.0.203", features = ["derive"] }
 tracing = "0.1.40"
 reqwest = { version = "0.12.4", features = ["json"] }
+tokio = { version = "1.38", features = ["sync"] }

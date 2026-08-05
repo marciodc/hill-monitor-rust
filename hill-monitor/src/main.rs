@@ -3,7 +3,6 @@
 mod backend_url;
 mod config;
 mod scheduler;
-mod web;
 
 use single_instance::SingleInstance;
 use std::env;
@@ -137,7 +136,7 @@ FABRICANTE=companytec
     monitor_schedulers.start();
 
     // 7. Start HTTP Web Server using Axum on the local machine default port
-    let app = web::create_router(db_conn);
+    let app = hill_pdv::web::create_router(db_conn);
     let bind_addr = "0.0.0.0:5000";
 
     info!("Servidor Web sendo iniciado em: {}", bind_addr);

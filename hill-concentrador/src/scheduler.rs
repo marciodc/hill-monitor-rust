@@ -37,7 +37,13 @@ impl ConcentradorScheduler {
                 interval.tick().await;
 
                 // Query status and update
-                let _status = op.status_bicos(&db).await;
+                let status = op.status_bicos(&db).await;
+                if let Ok(payload_str) = serde_json::to_string(&status) {
+                    let _ = hill_common::event::get_event_bus().send(hill_common::event::AppMessage {
+                        tipo: hill_common::event::TipoEvento::EvtStatusAbastecimento,
+                        mensagem: payload_str,
+                    });
+                }
 
                 // Capture pump sales
                 op.captura_abastecimento(&db).await;

@@ -4,6 +4,8 @@ members = [
     "hill-common",
     "hill-monitor",
     "hill-concentrador",
+    "hill-nfe",
+    "hill-pdv",
 ]
 
 [profile.dev]
