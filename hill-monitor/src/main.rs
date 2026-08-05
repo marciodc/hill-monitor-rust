@@ -31,7 +31,7 @@ fn spawn_windows_tray(exe_dir: std::path::PathBuf) {
         wparam: WPARAM,
         lparam: LPARAM,
     ) -> LRESULT {
-        DefWindowProcW(hwnd, msg, wparam, lparam)
+        unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
     }
 
     fn to_wstring(value: &OsStr) -> Vec<u16> {
@@ -73,8 +73,8 @@ fn spawn_windows_tray(exe_dir: std::path::PathBuf) {
             0,
             CW_USEDEFAULT,
             0,
-            0,
-            0,
+            ptr::null_mut(),
+            ptr::null_mut(),
             hinstance,
             ptr::null(),
         );
@@ -117,7 +117,7 @@ fn spawn_windows_tray(exe_dir: std::path::PathBuf) {
         }
 
         let mut msg = std::mem::zeroed::<MSG>();
-        while GetMessageW(&mut msg, 0, 0, 0) > 0 {
+        while GetMessageW(&mut msg, ptr::null_mut(), 0, 0) > 0 {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
