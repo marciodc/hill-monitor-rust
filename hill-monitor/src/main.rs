@@ -9,6 +9,121 @@ use std::env;
 use tracing::{error, info};
 use tracing_subscriber::prelude::*;
 
+#[cfg(target_os = "windows")]
+fn spawn_windows_tray(exe_dir: std::path::PathBuf) {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use std::ptr;
+    use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+    use windows_sys::Win32::UI::Shell::{
+        Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NOTIFYICONDATAW,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, LoadImageW,
+        RegisterClassW, TranslateMessage, CW_USEDEFAULT, HICON, IMAGE_ICON, LR_DEFAULTSIZE,
+        LR_LOADFROMFILE, MSG, WINDOW_EX_STYLE, WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW,
+    };
+
+    unsafe extern "system" fn window_proc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        DefWindowProcW(hwnd, msg, wparam, lparam)
+    }
+
+    fn to_wstring(value: &OsStr) -> Vec<u16> {
+        value.encode_wide().chain(Some(0)).collect()
+    }
+
+    std::thread::spawn(move || unsafe {
+        let icon_path = exe_dir.join("Resource").join("app.ico");
+        if !icon_path.exists() {
+            error!("Ícone da bandeja não encontrado em {:?}", icon_path);
+            return;
+        }
+
+        let class_name = to_wstring(OsStr::new("hill_monitor_tray_window"));
+        let hinstance = GetModuleHandleW(ptr::null());
+        if hinstance.is_null() {
+            error!("Falha ao obter handle do módulo para o tray do Windows.");
+            return;
+        }
+
+        let wnd = WNDCLASSW {
+            lpfnWndProc: Some(window_proc),
+            hInstance: hinstance,
+            lpszClassName: class_name.as_ptr(),
+            ..std::mem::zeroed()
+        };
+
+        if RegisterClassW(&wnd) == 0 {
+            error!("Falha ao registrar classe da janela do tray do Windows.");
+            return;
+        }
+
+        let hwnd = CreateWindowExW(
+            WINDOW_EX_STYLE::default(),
+            class_name.as_ptr(),
+            class_name.as_ptr(),
+            WS_OVERLAPPEDWINDOW,
+            CW_USEDEFAULT,
+            0,
+            CW_USEDEFAULT,
+            0,
+            0,
+            0,
+            hinstance,
+            ptr::null(),
+        );
+
+        if hwnd.is_null() {
+            error!("Falha ao criar janela oculta do tray do Windows.");
+            return;
+        }
+
+        let icon_w = to_wstring(icon_path.as_os_str());
+        let icon = LoadImageW(
+            ptr::null_mut(),
+            icon_w.as_ptr(),
+            IMAGE_ICON,
+            0,
+            0,
+            LR_LOADFROMFILE | LR_DEFAULTSIZE,
+        ) as HICON;
+
+        if icon.is_null() {
+            error!("Falha ao carregar ícone do disco para o tray do Windows.");
+            return;
+        }
+
+        let mut nid = std::mem::zeroed::<NOTIFYICONDATAW>();
+        nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+        nid.hWnd = hwnd;
+        nid.uID = 1;
+        nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+        nid.uCallbackMessage = WM_USER + 1;
+        nid.hIcon = icon;
+
+        let tip = to_wstring(OsStr::new("Hill Monitor"));
+        let copy_len = tip.len().min(nid.szTip.len());
+        nid.szTip[..copy_len].copy_from_slice(&tip[..copy_len]);
+
+        if Shell_NotifyIconW(NIM_ADD, &nid) == 0 {
+            error!("Falha ao adicionar ícone na bandeja do Windows.");
+            return;
+        }
+
+        let mut msg = std::mem::zeroed::<MSG>();
+        while GetMessageW(&mut msg, 0, 0, 0) > 0 {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    });
+}
+
 fn normalize_log_level(level: &str) -> &'static str {
     match level.trim().to_ascii_uppercase().as_str() {
         "TRACE" => "trace",
@@ -237,21 +352,7 @@ FABRICANTE=companytec
 
     #[cfg(target_os = "windows")]
     {
-        use tray_item::{TrayItem, IconSource};
-        let mut tray = match TrayItem::new("Hill Monitor", IconSource::Resource("IDI_ICON1")) {
-            Ok(t) => Some(t),
-            Err(e) => {
-                error!("Erro ao criar ícone de bandeja: {:?}", e);
-                None
-            }
-        };
-
-        if let Some(ref mut t) = tray {
-            let _ = t.add_menu_item("Sair", || {
-                info!("Sair selecionado via menu da bandeja. Finalizando.");
-                std::process::exit(0);
-            });
-        }
+        spawn_windows_tray(exe_dir.clone());
     }
 
     // Mantém a thread principal ativa indefinidamente
