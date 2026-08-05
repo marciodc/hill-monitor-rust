@@ -198,7 +198,9 @@ pub struct NewBico {
     pub bomba_id: i32,
     pub tanque_id: i32,
     pub numero: i32,
+    #[allow(dead_code)]
     pub codigo: Option<String>,
+    pub retorno: Option<String>,
     pub preco_unitario: Option<String>,
     pub status: Option<String>,
     pub bloqueado: Option<String>,

@@ -23,7 +23,6 @@ fn normalize_log_level(level: &str) -> &'static str {
 
 fn setup_logging(
     log_dir: &std::path::Path,
-    file_level: &str,
     console_level: &str,
 ) -> Option<tracing_appender::non_blocking::WorkerGuard> {
 
@@ -35,7 +34,7 @@ fn setup_logging(
     let file_layer = tracing_subscriber::fmt::layer()
         .with_writer(non_blocking)
         .with_ansi(false)
-        .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(file_level)));
+        .with_filter(tracing_subscriber::EnvFilter::new("warn"));
 
     let console_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stdout)
@@ -96,14 +95,14 @@ FABRICANTE=companytec
 
     // 3. Setup Logging
     let log_dir = exe_dir.join("Log");
-    let _guard = setup_logging(&log_dir, &ini.log, &ini.log_terminal);
+    let _guard = setup_logging(&log_dir, &ini.log_terminal);
 
     info!("Iniciando hill-monitor...");
     info!("Lendo arquivo de configuração de: {:?}", ini_path);
     info!("Configuração carregada com sucesso.");
     info!("DB IP: {}", ini.db_ip);
     info!("DB Porta: {}", ini.db_porta);
-    info!("Log: {}", ini.log);
+    info!("Log arquivo: WARN");
     info!("Log terminal: {}", ini.log_terminal);
     info!("SQL Log: {}", ini.log_sql);
     info!("Fabricante: {}", ini.fabricante);

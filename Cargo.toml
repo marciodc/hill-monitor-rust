@@ -5,3 +5,7 @@ members = [
     "hill-monitor",
     "hill-concentrador",
 ]
+
+[profile.dev]
+debug = 1
+incremental = false

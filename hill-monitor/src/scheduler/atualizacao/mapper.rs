@@ -35,22 +35,6 @@ fn one_char(value: Option<String>, default: &str) -> Option<String> {
         .or_else(|| Some(default.to_string()))
 }
 
-fn truncate_string(value: Option<String>, max_len: usize) -> Option<String> {
-    value.map(|s| s.chars().take(max_len).collect())
-}
-
-fn extract_bico_retorno(codigo: Option<String>) -> Option<String> {
-    let codigo = codigo?;
-    let trimmed = codigo.trim();
-
-    if let Some(rest) = trimmed.strip_prefix("B-") {
-        let retorno = rest.split('.').next().unwrap_or(rest);
-        return Some(retorno.chars().take(3).collect());
-    }
-
-    truncate_string(Some(codigo), 3)
-}
-
 fn normalize_bico_status(value: Option<String>) -> Option<String> {
     let normalized = value
         .as_deref()
@@ -286,7 +270,7 @@ pub fn map_new_payload_to_sincronizacao(payload: NewSyncPayload, pdv_uuid: Optio
             mapped_bicos.push(hill_common::entity::Bico {
                 id: b.id,
                 status: normalize_bico_status(b.status.clone()),
-                retorno: extract_bico_retorno(b.codigo.clone()),
+                retorno: b.retorno.clone(),
                 numero: b.numero,
                 bomba: b.bomba_id,
                 tanque_id: b.tanque_id,
