@@ -10,7 +10,7 @@ use tracing::{error, info};
 use tracing_subscriber::prelude::*;
 
 #[cfg(target_os = "windows")]
-fn spawn_windows_tray(exe_dir: std::path::PathBuf) {
+fn spawn_windows_tray() {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use std::ptr;
@@ -39,7 +39,9 @@ fn spawn_windows_tray(exe_dir: std::path::PathBuf) {
     }
 
     std::thread::spawn(move || unsafe {
-        let icon_path = exe_dir.join("Resource").join("app.ico");
+        let icon_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("Resource")
+            .join("app.ico");
         if !icon_path.exists() {
             error!("Ícone da bandeja não encontrado em {:?}", icon_path);
             return;
@@ -352,7 +354,7 @@ FABRICANTE=companytec
 
     #[cfg(target_os = "windows")]
     {
-        spawn_windows_tray(exe_dir.clone());
+        spawn_windows_tray();
     }
 
     // Mantém a thread principal ativa indefinidamente
