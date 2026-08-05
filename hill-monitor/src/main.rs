@@ -1,3 +1,4 @@
+#![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 #![recursion_limit = "256"]
 
 mod backend_url;
@@ -8,6 +9,24 @@ use single_instance::SingleInstance;
 use std::env;
 use tracing::{error, info};
 use tracing_subscriber::prelude::*;
+
+fn is_enabled_flag(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_uppercase().as_str(),
+        "T" | "TRUE" | "1" | "YES" | "Y" | "SIM" | "S"
+    )
+}
+
+#[cfg(target_os = "windows")]
+fn maybe_enable_debug_console(enabled: bool) {
+    use windows_sys::Win32::System::Console::AllocConsole;
+
+    if enabled {
+        unsafe {
+            let _ = AllocConsole();
+        }
+    }
+}
 
 #[cfg(target_os = "windows")]
 fn spawn_windows_tray() {
@@ -239,13 +258,13 @@ async fn main() {
 
     // Create a dummy ini file if it doesn't exist for test purposes
     if !ini_path.exists() {
-        eprintln!("Arquivo monitor.ini não encontrado. Criando arquivo de exemplo padrão.");
         let default_ini_content = "\
 DB_IP=localhost
 DB_PORTA=5432
 LOG_SQL=F
 LOG=INFO
 LOG_TERMINAL=INFO
+EXIBIR_TERMINAL=F
 FABRICANTE=companytec
 ";
         if let Err(e) = std::fs::write(&ini_path, default_ini_content) {
@@ -261,9 +280,17 @@ FABRICANTE=companytec
         }
     };
 
+    #[cfg(target_os = "windows")]
+    maybe_enable_debug_console(is_enabled_flag(&ini.exibir_terminal));
+
     // 3. Setup Logging
     let log_dir = exe_dir.join("Log");
-    let _guard = setup_logging(&log_dir, &ini.log_terminal);
+    let console_level = if is_enabled_flag(&ini.exibir_terminal) {
+        ini.log_terminal.as_str()
+    } else {
+        "off"
+    };
+    let _guard = setup_logging(&log_dir, console_level);
 
     info!("Iniciando hill-monitor...");
     info!("Lendo arquivo de configuração de: {:?}", ini_path);
@@ -272,11 +299,12 @@ FABRICANTE=companytec
     info!("DB Porta: {}", ini.db_porta);
     info!("Log arquivo: WARN");
     info!("Log terminal: {}", ini.log_terminal);
+    info!("Exibir terminal: {}", ini.exibir_terminal);
     info!("SQL Log: {}", ini.log_sql);
     info!("Fabricante: {}", ini.fabricante);
 
     // 4. Connect to Database
-    let log_sql = matches!(ini.log_sql.trim().to_ascii_uppercase().as_str(), "T" | "TRUE" | "1" | "YES" | "Y");
+    let log_sql = is_enabled_flag(&ini.log_sql);
 
     let db_conn = match hill_common::db::establish_connection(&ini.db_ip, &ini.db_porta, log_sql).await {
         Ok(conn) => conn,

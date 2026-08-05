@@ -9,6 +9,7 @@ pub struct IniFile {
     pub log_sql: String,
     pub log: String,
     pub log_terminal: String,
+    pub exibir_terminal: String,
     pub fabricante: String,
 }
 
@@ -36,6 +37,9 @@ impl IniFile {
                     "LOG_SQL" => ini.log_sql = val.to_string(),
                     "LOG" => ini.log = val.to_string(),
                     "LOG_TERMINAL" => ini.log_terminal = val.to_string(),
+                    "EXIBIR_TERMINAL" | "EXIBE_TERMINAL" | "DEBUG_TERMINAL" | "SHOW_CONSOLE" => {
+                        ini.exibir_terminal = val.to_string()
+                    }
                     "FABRICANTE" => ini.fabricante = val.to_string(),
                     _ => {}
                 }
