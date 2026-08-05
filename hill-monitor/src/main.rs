@@ -238,7 +238,7 @@ FABRICANTE=companytec
     #[cfg(target_os = "windows")]
     {
         use tray_item::{TrayItem, IconSource};
-        let mut tray = match TrayItem::new("Hill Monitor", IconSource::Resource("1")) {
+        let mut tray = match TrayItem::new("Hill Monitor", IconSource::Resource("IDI_ICON1")) {
             Ok(t) => Some(t),
             Err(e) => {
                 error!("Erro ao criar ícone de bandeja: {:?}", e);
