@@ -1,11 +1,11 @@
 use crate::web::{auth, controller};
+use crate::web::state::AppState;
 use axum::middleware;
 use axum::routing::{get, post};
 use axum::Router;
-use sea_orm::DatabaseConnection;
 use tower_http::cors::CorsLayer;
 
-pub fn create_router(db: DatabaseConnection) -> Router {
+pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(|| async { "Hill.Monitor API in Rust is running!" }))
         .route("/abastecimentos", get(controller::abastecimentos::listar_abastecimentos))
@@ -63,6 +63,6 @@ pub fn create_router(db: DatabaseConnection) -> Router {
         )
         .route("/ws", get(super::websocket::ws_handler))
         .layer(middleware::from_fn(auth::require_bearer_token))
-        .with_state(db)
+        .with_state(state)
         .layer(CorsLayer::permissive())
 }

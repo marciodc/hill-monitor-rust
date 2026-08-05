@@ -387,7 +387,11 @@ FABRICANTE=companytec
     monitor_schedulers.start();
 
     // 7. Start HTTP Web Server using Axum on the local machine default port
-    let app = hill_pdv::web::create_router(db_conn);
+    let app_state = hill_pdv::web::state::AppState {
+        db: db_conn.clone(),
+        concentrador_op: concentrador_scheduler.operation(),
+    };
+    let app = hill_pdv::web::create_router(app_state);
     let bind_addr = "0.0.0.0:5000";
 
     info!("Servidor Web sendo iniciado em: {}", bind_addr);

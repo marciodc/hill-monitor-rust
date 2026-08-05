@@ -1,10 +1,10 @@
 use crate::web::service::pesquisa::{PesquisaService, ProdutoPesquisaItem};
 use crate::web::service::response::ApiResponse;
+use crate::web::state::AppState;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
 use hill_common::entity::{TabelaPreco, Usuario, Vendedor};
-use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -33,18 +33,18 @@ pub struct PesquisaTabelaPrecoRequest {
 }
 
 pub async fn pesquisa_usuario(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Json(payload): Json<PesquisaUsuarioRequest>,
 ) -> (StatusCode, Json<ApiResponse<Vec<Usuario>>>) {
-    let service = PesquisaService::new(db);
+    let service = PesquisaService::new(state.db);
     (StatusCode::OK, Json(service.pesquisa_usuario(payload.nome, payload.ids).await))
 }
 
 pub async fn pesquisa_vendedor(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Json(payload): Json<PesquisaVendedorRequest>,
 ) -> (StatusCode, Json<ApiResponse<Vec<Vendedor>>>) {
-    let service = PesquisaService::new(db);
+    let service = PesquisaService::new(state.db);
     (
         StatusCode::OK,
         Json(service.pesquisa_vendedor(payload.nome, payload.codigo).await),
@@ -52,10 +52,10 @@ pub async fn pesquisa_vendedor(
 }
 
 pub async fn pesquisa_produto(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Json(payload): Json<PesquisaProdutoRequest>,
 ) -> (StatusCode, Json<ApiResponse<Vec<ProdutoPesquisaItem>>>) {
-    let service = PesquisaService::new(db);
+    let service = PesquisaService::new(state.db);
     (
         StatusCode::OK,
         Json(
@@ -67,10 +67,10 @@ pub async fn pesquisa_produto(
 }
 
 pub async fn pesquisa_tabela_preco(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Json(payload): Json<PesquisaTabelaPrecoRequest>,
 ) -> (StatusCode, Json<ApiResponse<Vec<TabelaPreco>>>) {
-    let service = PesquisaService::new(db);
+    let service = PesquisaService::new(state.db);
     (
         StatusCode::OK,
         Json(

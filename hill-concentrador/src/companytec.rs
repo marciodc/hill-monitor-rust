@@ -17,7 +17,7 @@ impl Companytec {
     }
 
     pub async fn status_bicos(com: &ConcentradorCom) -> String {
-        let ret = com.send_command("(&S)", true).await;
+        let ret = com.request_status_bicos().await;
         if ret.len() < 51 {
             return String::new();
         }
@@ -36,9 +36,7 @@ impl Companytec {
     }
 
     pub async fn consulta_encerrante(com: &ConcentradorCom, bico: &str, decimais: i32) -> Decimal {
-        let cmd_body = format!("&T{}L", bico);
-        let command = Self::adiciona_check(&cmd_body);
-        let ret = com.send_command(&command, true).await;
+        let ret = com.request_encerrante(bico).await;
         if !ret.contains(')') {
             return Decimal::ZERO;
         }
@@ -98,9 +96,7 @@ impl Companytec {
         padded.push_str(&numero_sem_ponto);
 
         let cod_bico = format!("U{}", bico);
-        let cmd_body = format!("&{}{}{}0{}", cod_bico, tipo, 0, padded);
-        let command = Self::adiciona_check(&cmd_body);
-        let ret = com.send_command(&command, true).await;
+        let ret = com.request_atualiza_preco(bico, tipo, &padded).await;
         ret == format!("({})", cod_bico)
     }
 

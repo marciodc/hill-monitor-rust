@@ -1,15 +1,15 @@
 use crate::web::service::abastecimentos::AbastecimentoService;
 use crate::web::service::response::ApiResponse;
+use crate::web::state::AppState;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
 use hill_common::entity::Abastecimento;
-use sea_orm::DatabaseConnection;
 
 pub async fn listar_abastecimentos(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
 ) -> (StatusCode, Json<Vec<Abastecimento>>) {
-    let service = AbastecimentoService::new(db);
+    let service = AbastecimentoService::new(state.db);
     match service.listar_abastecimentos().await {
         Ok(abast) => (StatusCode::OK, Json(abast)),
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(Vec::new())),
@@ -17,10 +17,10 @@ pub async fn listar_abastecimentos(
 }
 
 pub async fn listar_abastecimentos_usuario(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> (StatusCode, Json<Vec<Abastecimento>>) {
-    let service = AbastecimentoService::new(db);
+    let service = AbastecimentoService::new(state.db);
     match service.listar_abastecimentos_usuario(&id).await {
         Ok(abast) => (StatusCode::OK, Json(abast)),
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(Vec::new())),
@@ -28,10 +28,10 @@ pub async fn listar_abastecimentos_usuario(
 }
 
 pub async fn localizar_abastecimento(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> (StatusCode, Json<ApiResponse<Abastecimento>>) {
-    let service = AbastecimentoService::new(db);
+    let service = AbastecimentoService::new(state.db);
     match service.localizar_abastecimento(&id).await {
         Ok(Some(abast)) => (StatusCode::OK, Json(ApiResponse::ok(abast))),
         Ok(None) => (StatusCode::NOT_FOUND, Json(ApiResponse::err("Dados não localizados"))),
@@ -43,10 +43,10 @@ pub async fn localizar_abastecimento(
 }
 
 pub async fn seleciona_abastecimento(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Path((pdv, id)): Path<(String, String)>,
 ) -> (StatusCode, Json<ApiResponse<()>>) {
-    let service = AbastecimentoService::new(db);
+    let service = AbastecimentoService::new(state.db);
     let response = service.seleciona_abastecimento(&pdv, &id).await;
     let status = if response.status {
         StatusCode::OK
@@ -57,10 +57,10 @@ pub async fn seleciona_abastecimento(
 }
 
 pub async fn desseleciona_abastecimento(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Path((pdv, id)): Path<(String, String)>,
 ) -> (StatusCode, Json<ApiResponse<()>>) {
-    let service = AbastecimentoService::new(db);
+    let service = AbastecimentoService::new(state.db);
     let response = service.desseleciona_abastecimento(&pdv, &id).await;
     let status = if response.status {
         StatusCode::OK

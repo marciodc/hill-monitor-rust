@@ -62,4 +62,8 @@ impl ConcentradorScheduler {
     pub fn stop(&self) {
         self.running.store(false, Ordering::SeqCst);
     }
+
+    pub fn operation(&self) -> ConcentradorOperacao {
+        self.op.clone()
+    }
 }

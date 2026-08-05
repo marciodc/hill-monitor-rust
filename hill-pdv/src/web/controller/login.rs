@@ -1,9 +1,9 @@
 use crate::web::service::login::LoginService;
+use crate::web::state::AppState;
 use hill_common::entity::Usuario;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -42,10 +42,10 @@ impl LoginResponse {
 }
 
 pub async fn autentica(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Json(payload): Json<LoginUser>,
 ) -> (StatusCode, Json<LoginResponse>) {
-    let service = LoginService::new(db);
+    let service = LoginService::new(state.db);
     let response = service.autentica(payload).await;
     if response.status {
         (StatusCode::OK, Json(response))
@@ -55,10 +55,10 @@ pub async fn autentica(
 }
 
 pub async fn valida_usuario(
-    State(db): State<DatabaseConnection>,
+    State(state): State<AppState>,
     Json(payload): Json<LoginUser>,
 ) -> (StatusCode, Json<LoginResponse>) {
-    let service = LoginService::new(db);
+    let service = LoginService::new(state.db);
     let response = service.valida_usuario(payload).await;
     if response.status {
         (StatusCode::OK, Json(response))
