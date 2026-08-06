@@ -34,7 +34,9 @@ fn parse_decimal(value: Option<&str>) -> Decimal {
 }
 
 fn parse_decimal_f64(value: Option<f64>) -> Decimal {
-    value.and_then(Decimal::from_f64_retain).unwrap_or(Decimal::ZERO)
+    value
+        .and_then(Decimal::from_f64_retain)
+        .unwrap_or(Decimal::ZERO)
 }
 
 fn parse_i32(value: Option<&str>, default: i32) -> i32 {
@@ -615,7 +617,9 @@ impl TryFrom<&NewClienteFormaPagamento> for hill_common::entity::ParceiroFormaPa
     }
 }
 
-impl TryFrom<&NewClienteFormaPagamentoTabela> for hill_common::entity::ParceiroTabelaFormaPagamento {
+impl TryFrom<&NewClienteFormaPagamentoTabela>
+    for hill_common::entity::ParceiroTabelaFormaPagamento
+{
     type Error = &'static str;
 
     fn try_from(value: &NewClienteFormaPagamentoTabela) -> Result<Self, Self::Error> {

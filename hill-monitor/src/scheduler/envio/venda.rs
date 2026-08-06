@@ -1,7 +1,7 @@
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, QuerySelect};
-use hill_common::entity::{venda, venda_item, venda_pagamento, abastecimento};
-use hill_common::net::HttpConn;
 use crate::backend_url::sync_send_url;
+use hill_common::entity::{abastecimento, venda, venda_item, venda_pagamento};
+use hill_common::net::HttpConn;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -25,9 +25,14 @@ pub async fn envia_vendas(
 ) -> Result<(), sea_orm::DbErr> {
     let vendas = match venda::Entity::find()
         .filter(
-            venda::Column::Estorno.ne("T")
+            venda::Column::Estorno
+                .ne("T")
                 .and(venda::Column::Finalizada.eq("T"))
-                .and(venda::Column::Sincronizado.ne("T").or(venda::Column::Sincronizado.is_null()))
+                .and(
+                    venda::Column::Sincronizado
+                        .ne("T")
+                        .or(venda::Column::Sincronizado.is_null()),
+                ),
         )
         .order_by_asc(venda::Column::Id)
         .limit(10)
@@ -36,7 +41,10 @@ pub async fn envia_vendas(
     {
         Ok(list) => list,
         Err(e) => {
-            error!("EnvioDadosVenda - Erro ao buscar vendas não sincronizadas: {:?}", e);
+            error!(
+                "EnvioDadosVenda - Erro ao buscar vendas não sincronizadas: {:?}",
+                e
+            );
             return Err(e);
         }
     };
@@ -65,7 +73,10 @@ pub async fn envia_vendas(
         };
 
         // Fetch linked abastecimentos
-        let abast_ids: Vec<Uuid> = items.iter().filter_map(|item| item.abastecimento_id).collect();
+        let abast_ids: Vec<Uuid> = items
+            .iter()
+            .filter_map(|item| item.abastecimento_id)
+            .collect();
         let linked_abast = if !abast_ids.is_empty() {
             abastecimento::Entity::find()
                 .filter(abastecimento::Column::Id.is_in(abast_ids))
@@ -162,9 +173,17 @@ pub async fn envia_vendas(
             })
         }).collect();
 
-        let turno_id = if tipo_estabelecimento == "posto" { v.turno_posto_id } else { v.turno_id };
-        let dados_adicionais = v.nfe_dados_adicionais.as_deref().unwrap_or("")
-            .replace("#$D#$A", "\n").replace("#13#10", "\n");
+        let turno_id = if tipo_estabelecimento == "posto" {
+            v.turno_posto_id
+        } else {
+            v.turno_id
+        };
+        let dados_adicionais = v
+            .nfe_dados_adicionais
+            .as_deref()
+            .unwrap_or("")
+            .replace("#$D#$A", "\n")
+            .replace("#13#10", "\n");
 
         let nfe_xml_base64 = if let Some(ref xml) = v.nfe_xml {
             base64::Engine::encode(&base64::prelude::BASE64_STANDARD, xml.as_bytes())
@@ -236,18 +255,27 @@ pub async fn envia_vendas(
             "EnvioDadosVenda - Enviando venda {} para {}",
             id, url_with_query
         );
-        match http.post_json_servidor(&url_with_query, &payload.to_string(), token).await {
+        match http
+            .post_json_servidor(&url_with_query, &payload.to_string(), token)
+            .await
+        {
             Ok(response_body) => {
                 info!("EnvioDadosVenda - Resposta HTTP recebida para venda {}", id);
                 if let Ok(result) = serde_json::from_str::<SincronizacaoResponse>(&response_body) {
                     if result.venda.and_then(|r| r.result).as_deref() == Some("success") {
                         let res = venda::Entity::update_many()
-                            .col_expr(venda::Column::Sincronizado, sea_orm::sea_query::Expr::value("T"))
+                            .col_expr(
+                                venda::Column::Sincronizado,
+                                sea_orm::sea_query::Expr::value("T"),
+                            )
                             .filter(venda::Column::Id.eq(id))
                             .exec(db)
                             .await;
                         if let Err(e) = res {
-                            error!("EnvioDadosVenda - Erro ao atualizar status de sincronização da venda: {:?}", e);
+                            error!(
+                                "EnvioDadosVenda - Erro ao atualizar status de sincronização da venda: {:?}",
+                                e
+                            );
                         } else {
                             info!("EnvioDadosVenda - Venda {} sincronizada com sucesso.", id);
                         }
@@ -255,7 +283,10 @@ pub async fn envia_vendas(
                 }
             }
             Err(e) => {
-                error!("EnvioDadosVenda - Erro na requisição HTTP para a venda {}: {:?}", id, e);
+                error!(
+                    "EnvioDadosVenda - Erro na requisição HTTP para a venda {}: {:?}",
+                    id, e
+                );
             }
         }
     }

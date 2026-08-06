@@ -10,7 +10,10 @@ pub async fn upsert_parceiro_dependentes(
     }
 
     for d in dependentes {
-        if let Some(existing) = parceiro_dependente::Entity::find_by_id(d.id).one(db).await? {
+        if let Some(existing) = parceiro_dependente::Entity::find_by_id(d.id)
+            .one(db)
+            .await?
+        {
             let existing: parceiro_dependente::ActiveModel = existing.into();
             existing.delete(db).await?;
         }

@@ -1,7 +1,10 @@
 use hill_common::entity::usuario;
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
-pub async fn upsert_usuarios(db: &DatabaseConnection, usuarios: &[hill_common::entity::Usuario]) -> Result<(), DbErr> {
+pub async fn upsert_usuarios(
+    db: &DatabaseConnection,
+    usuarios: &[hill_common::entity::Usuario],
+) -> Result<(), DbErr> {
     if usuarios.is_empty() {
         return Ok(());
     }

@@ -63,15 +63,15 @@ fn spawn_windows_tray() {
     use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
     use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::UI::Shell::{
-        Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NOTIFYICONDATAW,
+        NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NOTIFYICONDATAW, Shell_NotifyIconW,
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
-        DispatchMessageW, GetCursorPos, GetMessageW, LoadImageW, PostQuitMessage, RegisterClassW,
-        SetForegroundWindow, TrackPopupMenu, TranslateMessage, CW_USEDEFAULT, HICON, HMENU,
-        IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, MF_STRING, MSG, TPM_BOTTOMALIGN,
-        TPM_LEFTALIGN, TPM_LEFTBUTTON, WINDOW_EX_STYLE, WM_COMMAND, WM_DESTROY, WM_RBUTTONUP,
-        WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW,
+        AppendMenuW, CW_USEDEFAULT, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
+        DispatchMessageW, GetCursorPos, GetMessageW, HICON, HMENU, IMAGE_ICON, LR_DEFAULTSIZE,
+        LR_LOADFROMFILE, LoadImageW, MF_STRING, MSG, PostQuitMessage, RegisterClassW,
+        SetForegroundWindow, TPM_BOTTOMALIGN, TPM_LEFTALIGN, TPM_LEFTBUTTON, TrackPopupMenu,
+        TranslateMessage, WINDOW_EX_STYLE, WM_COMMAND, WM_DESTROY, WM_RBUTTONUP, WM_USER,
+        WNDCLASSW, WS_OVERLAPPEDWINDOW,
     };
 
     const WM_TRAYICON: u32 = WM_USER + 1;
@@ -241,7 +241,6 @@ fn setup_logging(
     console_level: &str,
     console_enabled: bool,
 ) -> Option<tracing_appender::non_blocking::WorkerGuard> {
-
     // Daily rotating file appender (e.g. monitor.2026-08-05.log)
     let file_appender = tracing_appender::rolling::RollingFileAppender::builder()
         .rotation(tracing_appender::rolling::Rotation::DAILY)
@@ -254,7 +253,9 @@ fn setup_logging(
     let file_layer = tracing_subscriber::fmt::layer()
         .with_writer(non_blocking)
         .with_ansi(false)
-        .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(file_level)));
+        .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(
+            file_level,
+        )));
 
     #[cfg(target_os = "windows")]
     let console_layer = if console_enabled {
@@ -271,7 +272,9 @@ fn setup_logging(
                     })
             })
             .with_ansi(false)
-            .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(console_level)))
+            .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(
+                console_level,
+            )))
             .boxed()
     } else {
         tracing_subscriber::fmt::layer()
@@ -284,7 +287,9 @@ fn setup_logging(
     #[cfg(not(target_os = "windows"))]
     let console_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stdout)
-        .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(console_level)));
+        .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(
+            console_level,
+        )));
 
     tracing_subscriber::registry()
         .with(file_layer)
@@ -305,7 +310,10 @@ async fn main() {
     }
 
     // 2. Resolve executable paths and load configuration (monitor.ini)
-    let exe_dir = match env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf())) {
+    let exe_dir = match env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+    {
         Some(dir) => dir,
         None => {
             eprintln!("Não foi possível determinar o diretório do executável.");
@@ -370,13 +378,17 @@ FABRICANTE=companytec
     // 4. Connect to Database
     let log_sql = is_enabled_flag(&ini.log_sql);
 
-    let db_conn = match hill_common::db::establish_connection(&ini.db_ip, &ini.db_porta, log_sql).await {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Não foi possível estabelecer conexão com o banco de dados: {:?}", e);
-            return;
-        }
-    };
+    let db_conn =
+        match hill_common::db::establish_connection(&ini.db_ip, &ini.db_porta, log_sql).await {
+            Ok(conn) => conn,
+            Err(e) => {
+                error!(
+                    "Não foi possível estabelecer conexão com o banco de dados: {:?}",
+                    e
+                );
+                return;
+            }
+        };
 
     // 5. Initialize Concentrador (Serial Port & Scheduler)
     let config_helper = hill_common::config_helper::ConfigHelper::new(db_conn.clone());
@@ -386,10 +398,14 @@ FABRICANTE=companytec
         .unwrap_or(None)
         .unwrap_or_else(|| "COM1".to_string());
 
-    info!("Inicializando comunicação com o concentrador serial na porta: {}", serial_port);
+    info!(
+        "Inicializando comunicação com o concentrador serial na porta: {}",
+        serial_port
+    );
     let com = hill_concentrador::com::ConcentradorCom::new(&serial_port);
     let op = hill_concentrador::operation::ConcentradorOperacao::new(com, &ini.fabricante);
-    let concentrador_scheduler = hill_concentrador::scheduler::ConcentradorScheduler::new(op, db_conn.clone());
+    let concentrador_scheduler =
+        hill_concentrador::scheduler::ConcentradorScheduler::new(op, db_conn.clone());
     concentrador_scheduler.start();
 
     // 6. Start Monitor Schedulers (Atualizacao, Contingencia, Envio)
@@ -462,7 +478,7 @@ FABRICANTE=companytec
                         }),
                         ..Default::default()
                     }
-                    .into()
+                    .into(),
                 ]
             }
         }
@@ -472,7 +488,7 @@ FABRICANTE=companytec
             Ok(img) => {
                 let rgba = img.into_rgba8();
                 let (width, height) = rgba.dimensions();
-                
+
                 // Convert RGBA to ARGB (required by ksni/dbus)
                 let mut argb = Vec::with_capacity(rgba.len());
                 for chunk in rgba.chunks_exact(4) {

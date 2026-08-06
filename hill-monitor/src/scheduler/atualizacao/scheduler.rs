@@ -1,3 +1,4 @@
+use crate::backend_url::api_base_url;
 use crate::scheduler::atualizacao::upsert_administradora::upsert_administradoras;
 use crate::scheduler::atualizacao::upsert_bico::upsert_bicos;
 use crate::scheduler::atualizacao::upsert_configuracao::upsert_configuracoes;
@@ -17,14 +18,13 @@ use crate::scheduler::atualizacao::upsert_tanque::upsert_tanques;
 use crate::scheduler::atualizacao::upsert_usuario::upsert_usuarios;
 use crate::scheduler::atualizacao::upsert_usuario_permissao::upsert_usuario_permissoes;
 use crate::scheduler::atualizacao::upsert_vendedor::upsert_vendedores;
-use crate::backend_url::api_base_url;
 use hill_common::config_helper::ConfigHelper;
 use hill_common::net::HttpConn;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use serde::Deserialize;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::time::{interval, Duration};
+use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::time::{Duration, interval};
 use tracing::{error, info};
 
 use super::dto::*;
@@ -99,7 +99,9 @@ impl AtualizacaoScheduler {
                 let backend_url = match config_helper.get_parametro("Backend_URL", None).await {
                     Ok(Some(url)) if !url.is_empty() => url,
                     _ => {
-                        info!("Backend_URL não configurada no banco de dados. Pulando sincronização.");
+                        info!(
+                            "Backend_URL não configurada no banco de dados. Pulando sincronização."
+                        );
                         continue;
                     }
                 };
@@ -107,7 +109,9 @@ impl AtualizacaoScheduler {
                 let token = match config_helper.get_parametro("Backend_Token", None).await {
                     Ok(Some(value)) if !value.is_empty() => value,
                     _ => {
-                        info!("Backend_Token não configurado no banco de dados. Pulando sincronização.");
+                        info!(
+                            "Backend_Token não configurado no banco de dados. Pulando sincronização."
+                        );
                         continue;
                     }
                 };
@@ -132,7 +136,9 @@ impl AtualizacaoScheduler {
                         let response = http.get_json_servidor(&url, &bearer_token).await;
                         match &response {
                             Ok(_) => info!("Sincronizacao - Snapshot global HTTP concluído."),
-                            Err(e) => error!("Sincronizacao - Snapshot global HTTP falhou: {:?}", e),
+                            Err(e) => {
+                                error!("Sincronizacao - Snapshot global HTTP falhou: {:?}", e)
+                            }
                         }
                         response
                     }
@@ -146,7 +152,10 @@ impl AtualizacaoScheduler {
                             }
                         });
 
-                        info!("Sincronizacao - Heartbeat global a partir de {}: {}", desde, url);
+                        info!(
+                            "Sincronizacao - Heartbeat global a partir de {}: {}",
+                            desde, url
+                        );
 
                         let heartbeat_body = match http
                             .post_json_servidor(&url, &payload.to_string(), &bearer_token)
@@ -162,10 +171,15 @@ impl AtualizacaoScheduler {
                             }
                         };
 
-                        let heartbeat = match serde_json::from_str::<HeartbeatEnvelope>(&heartbeat_body) {
+                        let heartbeat = match serde_json::from_str::<HeartbeatEnvelope>(
+                            &heartbeat_body,
+                        ) {
                             Ok(parsed) => parsed,
                             Err(e) => {
-                                error!("Sincronizacao - Erro ao fazer parse do heartbeat global: {:?}", e);
+                                error!(
+                                    "Sincronizacao - Erro ao fazer parse do heartbeat global: {:?}",
+                                    e
+                                );
                                 continue;
                             }
                         };
@@ -184,10 +198,14 @@ impl AtualizacaoScheduler {
 
                         let url = delta_url(&base_url);
                         let payload = serde_json::json!({ "desde": desde });
-                        info!("Sincronizacao - Delta global a partir de {}: {}", dt.format("%Y-%m-%dT%H:%M:%SZ"), url);
-                        let response =
-                            http.post_json_servidor(&url, &payload.to_string(), &bearer_token)
-                                .await;
+                        info!(
+                            "Sincronizacao - Delta global a partir de {}: {}",
+                            dt.format("%Y-%m-%dT%H:%M:%SZ"),
+                            url
+                        );
+                        let response = http
+                            .post_json_servidor(&url, &payload.to_string(), &bearer_token)
+                            .await;
                         match &response {
                             Ok(_) => info!("Sincronizacao - Delta global HTTP concluído."),
                             Err(e) => error!("Sincronizacao - Delta global HTTP falhou: {:?}", e),
@@ -197,239 +215,283 @@ impl AtualizacaoScheduler {
                 };
 
                 match response_result {
-                        Ok(response_body) => {
-                            info!("Sincronizacao - Retorno global recebido com sucesso.");
+                    Ok(response_body) => {
+                        info!("Sincronizacao - Retorno global recebido com sucesso.");
 
-                            match serde_json::from_str::<NewSyncPayload>(&response_body) {
-                                Ok(parsed) => {
-                                    if !parsed.ok {
-                                        error!("Sincronização global retornou ok=false");
-                                        continue;
-                                    }
+                        match serde_json::from_str::<NewSyncPayload>(&response_body) {
+                            Ok(parsed) => {
+                                if !parsed.ok {
+                                    error!("Sincronização global retornou ok=false");
+                                    continue;
+                                }
 
-                                    let gerado_em_dt = parsed
-                                        .gerado_em
-                                        .as_deref()
-                                        .and_then(parse_datetime)
-                                        .unwrap_or_else(|| chrono::Utc::now().naive_utc());
+                                let gerado_em_dt = parsed
+                                    .gerado_em
+                                    .as_deref()
+                                    .and_then(parse_datetime)
+                                    .unwrap_or_else(|| chrono::Utc::now().naive_utc());
 
-                                    let sinc = map_new_payload_to_sincronizacao(
-                                        parsed,
-                                        None,
-                                    );
-                                    let mut success = false;
+                                let sinc = map_new_payload_to_sincronizacao(parsed, None);
+                                let mut success = false;
 
-                                    if let Some(configs) = sinc.configuracoes {
-                                        if !configs.is_empty() {
-                                            if let Err(e) = upsert_configuracoes(&db, &configs).await {
-                                                error!("Erro ao atualizar configurações: {:?}", e);
-                                            } else {
-                                                info!("Configurações atualizadas no banco.");
-                                                success = true;
-                                            }
+                                if let Some(configs) = sinc.configuracoes {
+                                    if !configs.is_empty() {
+                                        if let Err(e) = upsert_configuracoes(&db, &configs).await {
+                                            error!("Erro ao atualizar configurações: {:?}", e);
+                                        } else {
+                                            info!("Configurações atualizadas no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(bicos) = sinc.bicos {
-                                        if !bicos.is_empty() {
-                                            if let Err(e) = upsert_bicos(&db, &bicos).await {
-                                                error!("Erro ao atualizar bicos: {:?}", e);
-                                            } else {
-                                                info!("Bicos atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(bicos) = sinc.bicos {
+                                    if !bicos.is_empty() {
+                                        if let Err(e) = upsert_bicos(&db, &bicos).await {
+                                            error!("Erro ao atualizar bicos: {:?}", e);
+                                        } else {
+                                            info!("Bicos atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(usuarios) = sinc.usuarios {
-                                        if !usuarios.is_empty() {
-                                            if let Err(e) = upsert_usuarios(&db, &usuarios).await {
-                                                error!("Erro ao atualizar usuários: {:?}", e);
-                                            } else {
-                                                info!("Usuários atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(usuarios) = sinc.usuarios {
+                                    if !usuarios.is_empty() {
+                                        if let Err(e) = upsert_usuarios(&db, &usuarios).await {
+                                            error!("Erro ao atualizar usuários: {:?}", e);
+                                        } else {
+                                            info!("Usuários atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(produtos) = sinc.produtos {
-                                        if !produtos.is_empty() {
-                                            if let Err(e) = upsert_produtos(&db, &produtos).await {
-                                                error!("Erro ao atualizar produtos: {:?}", e);
-                                            } else {
-                                                info!("Produtos atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(produtos) = sinc.produtos {
+                                    if !produtos.is_empty() {
+                                        if let Err(e) = upsert_produtos(&db, &produtos).await {
+                                            error!("Erro ao atualizar produtos: {:?}", e);
+                                        } else {
+                                            info!("Produtos atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(formas) = sinc.moedas {
-                                        if !formas.is_empty() {
-                                            if let Err(e) = upsert_formas_pagamento(&db, &formas).await {
-                                                error!("Erro ao atualizar formas de pagamento: {:?}", e);
-                                            } else {
-                                                info!("Formas de pagamento atualizadas no banco.");
-                                                success = true;
-                                            }
+                                if let Some(formas) = sinc.moedas {
+                                    if !formas.is_empty() {
+                                        if let Err(e) = upsert_formas_pagamento(&db, &formas).await
+                                        {
+                                            error!(
+                                                "Erro ao atualizar formas de pagamento: {:?}",
+                                                e
+                                            );
+                                        } else {
+                                            info!("Formas de pagamento atualizadas no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(parceiros) = sinc.parceiros {
-                                        if !parceiros.is_empty() {
-                                            if let Err(e) = upsert_parceiros(&db, &parceiros).await {
-                                                error!("Erro ao atualizar parceiros: {:?}", e);
-                                            } else {
-                                                info!("Parceiros atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(parceiros) = sinc.parceiros {
+                                    if !parceiros.is_empty() {
+                                        if let Err(e) = upsert_parceiros(&db, &parceiros).await {
+                                            error!("Erro ao atualizar parceiros: {:?}", e);
+                                        } else {
+                                            info!("Parceiros atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(admins) = sinc.administradoras {
-                                        if !admins.is_empty() {
-                                            if let Err(e) = upsert_administradoras(&db, &admins).await {
-                                                error!("Erro ao atualizar administradoras: {:?}", e);
-                                            } else {
-                                                info!("Administradoras atualizadas no banco.");
-                                                success = true;
-                                            }
+                                if let Some(admins) = sinc.administradoras {
+                                    if !admins.is_empty() {
+                                        if let Err(e) = upsert_administradoras(&db, &admins).await {
+                                            error!("Erro ao atualizar administradoras: {:?}", e);
+                                        } else {
+                                            info!("Administradoras atualizadas no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(setores) = sinc.setores {
-                                        if !setores.is_empty() {
-                                            if let Err(e) = upsert_setores(&db, &setores).await {
-                                                error!("Erro ao atualizar setores: {:?}", e);
-                                            } else {
-                                                info!("Setores atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(setores) = sinc.setores {
+                                    if !setores.is_empty() {
+                                        if let Err(e) = upsert_setores(&db, &setores).await {
+                                            error!("Erro ao atualizar setores: {:?}", e);
+                                        } else {
+                                            info!("Setores atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(tanques) = sinc.tanques {
-                                        if !tanques.is_empty() {
-                                            if let Err(e) = upsert_tanques(&db, &tanques).await {
-                                                error!("Erro ao atualizar tanques: {:?}", e);
-                                            } else {
-                                                info!("Tanques atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(tanques) = sinc.tanques {
+                                    if !tanques.is_empty() {
+                                        if let Err(e) = upsert_tanques(&db, &tanques).await {
+                                            error!("Erro ao atualizar tanques: {:?}", e);
+                                        } else {
+                                            info!("Tanques atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(tabelas) = sinc.tabela_precos {
-                                        if !tabelas.is_empty() {
-                                            if let Err(e) = upsert_tabela_precos(&db, &tabelas).await {
-                                                error!("Erro ao atualizar tabela de preços: {:?}", e);
-                                            } else {
-                                                info!("Tabela de preços atualizada no banco.");
-                                                success = true;
-                                            }
+                                if let Some(tabelas) = sinc.tabela_precos {
+                                    if !tabelas.is_empty() {
+                                        if let Err(e) = upsert_tabela_precos(&db, &tabelas).await {
+                                            error!("Erro ao atualizar tabela de preços: {:?}", e);
+                                        } else {
+                                            info!("Tabela de preços atualizada no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(vendedores) = sinc.vendedores {
-                                        if !vendedores.is_empty() {
-                                            if let Err(e) = upsert_vendedores(&db, &vendedores).await {
-                                                error!("Erro ao atualizar vendedores: {:?}", e);
-                                            } else {
-                                                info!("Vendedores atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(vendedores) = sinc.vendedores {
+                                    if !vendedores.is_empty() {
+                                        if let Err(e) = upsert_vendedores(&db, &vendedores).await {
+                                            error!("Erro ao atualizar vendedores: {:?}", e);
+                                        } else {
+                                            info!("Vendedores atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(permissoes) = sinc.usuario_permissoes {
-                                        if !permissoes.is_empty() {
-                                            if let Err(e) = upsert_usuario_permissoes(&db, &permissoes).await {
-                                                error!("Erro ao atualizar permissões do usuário: {:?}", e);
-                                            } else {
-                                                info!("Permissões do usuário atualizadas no banco.");
-                                                success = true;
-                                            }
+                                if let Some(permissoes) = sinc.usuario_permissoes {
+                                    if !permissoes.is_empty() {
+                                        if let Err(e) =
+                                            upsert_usuario_permissoes(&db, &permissoes).await
+                                        {
+                                            error!(
+                                                "Erro ao atualizar permissões do usuário: {:?}",
+                                                e
+                                            );
+                                        } else {
+                                            info!("Permissões do usuário atualizadas no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(itens) = sinc.tabelapreco_itens {
-                                        if !itens.is_empty() {
-                                            if let Err(e) = upsert_tabela_preco_itens(&db, &itens).await {
-                                                error!("Erro ao atualizar itens da tabela de preços: {:?}", e);
-                                            } else {
-                                                info!("Itens da tabela de preços atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(itens) = sinc.tabelapreco_itens {
+                                    if !itens.is_empty() {
+                                        if let Err(e) = upsert_tabela_preco_itens(&db, &itens).await
+                                        {
+                                            error!(
+                                                "Erro ao atualizar itens da tabela de preços: {:?}",
+                                                e
+                                            );
+                                        } else {
+                                            info!(
+                                                "Itens da tabela de preços atualizados no banco."
+                                            );
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(prod_setores) = sinc.produtos_setores {
-                                        if !prod_setores.is_empty() {
-                                            if let Err(e) = upsert_produtos_setores(&db, &prod_setores).await {
-                                                error!("Erro ao atualizar produtos setores: {:?}", e);
-                                            } else {
-                                                info!("Produtos setores atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(prod_setores) = sinc.produtos_setores {
+                                    if !prod_setores.is_empty() {
+                                        if let Err(e) =
+                                            upsert_produtos_setores(&db, &prod_setores).await
+                                        {
+                                            error!("Erro ao atualizar produtos setores: {:?}", e);
+                                        } else {
+                                            info!("Produtos setores atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(deps) = sinc.parceiro_dependentes {
-                                        if !deps.is_empty() {
-                                            if let Err(e) = upsert_parceiro_dependentes(&db, &deps).await {
-                                                error!("Erro ao atualizar dependentes de parceiros: {:?}", e);
-                                            } else {
-                                                info!("Dependentes de parceiros atualizados no banco.");
-                                                success = true;
-                                            }
+                                if let Some(deps) = sinc.parceiro_dependentes {
+                                    if !deps.is_empty() {
+                                        if let Err(e) =
+                                            upsert_parceiro_dependentes(&db, &deps).await
+                                        {
+                                            error!(
+                                                "Erro ao atualizar dependentes de parceiros: {:?}",
+                                                e
+                                            );
+                                        } else {
+                                            info!("Dependentes de parceiros atualizados no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(frotas) = sinc.parceiro_frotas {
-                                        if !frotas.is_empty() {
-                                            if let Err(e) = upsert_parceiro_frotas(&db, &frotas).await {
-                                                error!("Erro ao atualizar frotas de parceiros: {:?}", e);
-                                            } else {
-                                                info!("Frotas de parceiros atualizadas no banco.");
-                                                success = true;
-                                            }
+                                if let Some(frotas) = sinc.parceiro_frotas {
+                                    if !frotas.is_empty() {
+                                        if let Err(e) = upsert_parceiro_frotas(&db, &frotas).await {
+                                            error!(
+                                                "Erro ao atualizar frotas de parceiros: {:?}",
+                                                e
+                                            );
+                                        } else {
+                                            info!("Frotas de parceiros atualizadas no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(formas_pag) = sinc.parceiro_formas_pagamento {
-                                        if !formas_pag.is_empty() {
-                                            if let Err(e) = upsert_parceiro_formas_pagamento(&db, &formas_pag).await {
-                                                error!("Erro ao atualizar formas de pagamento de parceiros: {:?}", e);
-                                            } else {
-                                                info!("Formas de pagamento de parceiros atualizadas no banco.");
-                                                success = true;
-                                            }
+                                if let Some(formas_pag) = sinc.parceiro_formas_pagamento {
+                                    if !formas_pag.is_empty() {
+                                        if let Err(e) =
+                                            upsert_parceiro_formas_pagamento(&db, &formas_pag).await
+                                        {
+                                            error!(
+                                                "Erro ao atualizar formas de pagamento de parceiros: {:?}",
+                                                e
+                                            );
+                                        } else {
+                                            info!(
+                                                "Formas de pagamento de parceiros atualizadas no banco."
+                                            );
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(tabelas_pag) = sinc.parceiro_tabelas_formas_pagamento {
-                                        if !tabelas_pag.is_empty() {
-                                            if let Err(e) = upsert_parceiro_tabelas_formas_pagamento(&db, &tabelas_pag).await {
-                                                error!("Erro ao atualizar tabelas formas pagamento de parceiros: {:?}", e);
-                                            } else {
-                                                info!("Tabelas formas pagamento de parceiros atualizadas no banco.");
-                                                success = true;
-                                            }
+                                if let Some(tabelas_pag) = sinc.parceiro_tabelas_formas_pagamento {
+                                    if !tabelas_pag.is_empty() {
+                                        if let Err(e) = upsert_parceiro_tabelas_formas_pagamento(
+                                            &db,
+                                            &tabelas_pag,
+                                        )
+                                        .await
+                                        {
+                                            error!(
+                                                "Erro ao atualizar tabelas formas pagamento de parceiros: {:?}",
+                                                e
+                                            );
+                                        } else {
+                                            info!(
+                                                "Tabelas formas pagamento de parceiros atualizadas no banco."
+                                            );
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if let Some(parc_tabelas) = sinc.parceiro_tabelas {
-                                        if !parc_tabelas.is_empty() {
-                                            if let Err(e) = upsert_parceiro_tabelas(&db, &parc_tabelas).await {
-                                                error!("Erro ao atualizar tabelas de parceiros: {:?}", e);
-                                            } else {
-                                                info!("Tabelas de parceiros atualizadas no banco.");
-                                                success = true;
-                                            }
+                                if let Some(parc_tabelas) = sinc.parceiro_tabelas {
+                                    if !parc_tabelas.is_empty() {
+                                        if let Err(e) =
+                                            upsert_parceiro_tabelas(&db, &parc_tabelas).await
+                                        {
+                                            error!(
+                                                "Erro ao atualizar tabelas de parceiros: {:?}",
+                                                e
+                                            );
+                                        } else {
+                                            info!("Tabelas de parceiros atualizadas no banco.");
+                                            success = true;
                                         }
                                     }
+                                }
 
-                                    if success {
-                                        let res = hill_common::entity::configuracao::Entity::update_many()
+                                if success {
+                                    let res = hill_common::entity::configuracao::Entity::update_many()
                                             .col_expr(
                                                 hill_common::entity::configuracao::Column::Atualizacao,
                                                 sea_orm::sea_query::Expr::value(gerado_em_dt),
@@ -437,25 +499,28 @@ impl AtualizacaoScheduler {
                                             .exec(&db)
                                             .await;
 
-                                        if let Err(e) = res {
-                                            error!("Erro ao atualizar timestamp de sincronização: {:?}", e);
-                                        } else {
-                                            info!("Sincronização global concluída com sucesso.");
-                                        }
+                                    if let Err(e) = res {
+                                        error!(
+                                            "Erro ao atualizar timestamp de sincronização: {:?}",
+                                            e
+                                        );
+                                    } else {
+                                        info!("Sincronização global concluída com sucesso.");
                                     }
                                 }
-                                Err(e) => {
-                                    error!(
-                                        "Erro ao fazer parse da resposta de sincronização global: {:?}. Prévia da resposta: {:?}",
-                                        e,
-                                        response_preview(&response_body, 300)
-                                    );
-                                }
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Erro ao fazer parse da resposta de sincronização global: {:?}. Prévia da resposta: {:?}",
+                                    e,
+                                    response_preview(&response_body, 300)
+                                );
                             }
                         }
-                        Err(e) => {
-                            error!("Sincronizacao - Erro na requisição HTTP global: {:?}", e);
-                        }
+                    }
+                    Err(e) => {
+                        error!("Sincronizacao - Erro na requisição HTTP global: {:?}", e);
+                    }
                 }
             }
 

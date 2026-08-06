@@ -1,7 +1,7 @@
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, QuerySelect};
+use crate::backend_url::sync_send_url;
 use hill_common::entity::abastecimento;
 use hill_common::net::HttpConn;
-use crate::backend_url::sync_send_url;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 use tracing::{error, info};
 
 #[derive(serde::Deserialize)]
@@ -22,7 +22,11 @@ pub async fn envia_abastecimentos(
     empresa_id: i32,
 ) -> Result<(), sea_orm::DbErr> {
     let abastecimentos = match abastecimento::Entity::find()
-        .filter(abastecimento::Column::Sincronizado.ne("T").or(abastecimento::Column::Sincronizado.is_null()))
+        .filter(
+            abastecimento::Column::Sincronizado
+                .ne("T")
+                .or(abastecimento::Column::Sincronizado.is_null()),
+        )
         .order_by_asc(abastecimento::Column::Id)
         .limit(50)
         .all(db)
@@ -30,7 +34,10 @@ pub async fn envia_abastecimentos(
     {
         Ok(list) => list,
         Err(e) => {
-            error!("EnvioDadosAbastecimento - Erro ao buscar abastecimentos não sincronizados: {:?}", e);
+            error!(
+                "EnvioDadosAbastecimento - Erro ao buscar abastecimentos não sincronizados: {:?}",
+                e
+            );
             return Err(e);
         }
     };
@@ -39,7 +46,10 @@ pub async fn envia_abastecimentos(
         return Ok(());
     }
 
-    info!("EnvioDadosAbastecimento - Encontrados {} abastecimentos para sincronizar.", abastecimentos.len());
+    info!(
+        "EnvioDadosAbastecimento - Encontrados {} abastecimentos para sincronizar.",
+        abastecimentos.len()
+    );
 
     for abast in abastecimentos {
         let id = abast.id;
@@ -72,7 +82,10 @@ pub async fn envia_abastecimentos(
             "EnvioDadosAbastecimento - Enviando abastecimento {} para {}",
             id, url_with_query
         );
-        match http.post_json_servidor(&url_with_query, &payload.to_string(), token).await {
+        match http
+            .post_json_servidor(&url_with_query, &payload.to_string(), token)
+            .await
+        {
             Ok(response_body) => {
                 info!(
                     "EnvioDadosAbastecimento - Resposta HTTP recebida para abastecimento {}",
@@ -81,20 +94,32 @@ pub async fn envia_abastecimentos(
                 if let Ok(result) = serde_json::from_str::<SincronizacaoResponse>(&response_body) {
                     if result.abastecimentos.and_then(|r| r.result).as_deref() == Some("success") {
                         let res = abastecimento::Entity::update_many()
-                            .col_expr(abastecimento::Column::Sincronizado, sea_orm::sea_query::Expr::value("T"))
+                            .col_expr(
+                                abastecimento::Column::Sincronizado,
+                                sea_orm::sea_query::Expr::value("T"),
+                            )
                             .filter(abastecimento::Column::Id.eq(id))
                             .exec(db)
                             .await;
                         if let Err(e) = res {
-                            error!("EnvioDadosAbastecimento - Erro ao atualizar status de sincronização no banco: {:?}", e);
+                            error!(
+                                "EnvioDadosAbastecimento - Erro ao atualizar status de sincronização no banco: {:?}",
+                                e
+                            );
                         } else {
-                            info!("EnvioDadosAbastecimento - Abastecimento {} sincronizado com sucesso.", id);
+                            info!(
+                                "EnvioDadosAbastecimento - Abastecimento {} sincronizado com sucesso.",
+                                id
+                            );
                         }
                     }
                 }
             }
             Err(e) => {
-                error!("EnvioDadosAbastecimento - Erro na requisição HTTP para o abastecimento {}: {:?}", id, e);
+                error!(
+                    "EnvioDadosAbastecimento - Erro na requisição HTTP para o abastecimento {}: {:?}",
+                    id, e
+                );
             }
         }
     }

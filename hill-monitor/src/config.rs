@@ -23,7 +23,10 @@ impl IniFile {
         for line in reader.lines() {
             let line = line?;
             // Ignore comments or empty lines
-            if line.trim().starts_with(';') || line.trim().starts_with('#') || line.trim().is_empty() {
+            if line.trim().starts_with(';')
+                || line.trim().starts_with('#')
+                || line.trim().is_empty()
+            {
                 continue;
             }
 

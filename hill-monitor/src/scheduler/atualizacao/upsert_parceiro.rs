@@ -1,7 +1,10 @@
 use hill_common::entity::parceiro;
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
-pub async fn upsert_parceiros(db: &DatabaseConnection, parceiros: &[hill_common::entity::Parceiro]) -> Result<(), DbErr> {
+pub async fn upsert_parceiros(
+    db: &DatabaseConnection,
+    parceiros: &[hill_common::entity::Parceiro],
+) -> Result<(), DbErr> {
     if parceiros.is_empty() {
         return Ok(());
     }

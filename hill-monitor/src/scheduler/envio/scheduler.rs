@@ -2,9 +2,9 @@ use crate::scheduler::envio::{abastecimento, afericao, venda};
 use hill_common::config_helper::ConfigHelper;
 use hill_common::net::HttpConn;
 use sea_orm::DatabaseConnection;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::time::{interval, Duration};
+use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::time::{Duration, interval};
 use tracing::{error, info};
 
 pub struct EnvioScheduler {
@@ -67,7 +67,10 @@ impl EnvioScheduler {
                 };
 
                 let empresa_id = configuracao.empresa;
-                let tipo_estabelecimento = configuracao.tipo_estabelecimento.clone().unwrap_or_default();
+                let tipo_estabelecimento = configuracao
+                    .tipo_estabelecimento
+                    .clone()
+                    .unwrap_or_default();
 
                 if tipo_estabelecimento == "posto" || tipo_estabelecimento.is_empty() {
                     // let _ = abastecimento::envia_abastecimentos(
@@ -78,14 +81,8 @@ impl EnvioScheduler {
                     //     empresa_id,
                     // )
                     // .await;
-                    let _ = afericao::envia_afericoes(
-                        &db,
-                        &http,
-                        &backend_url,
-                        &token,
-                        empresa_id,
-                    )
-                    .await;
+                    let _ = afericao::envia_afericoes(&db, &http, &backend_url, &token, empresa_id)
+                        .await;
                 }
 
                 let _ = venda::envia_vendas(

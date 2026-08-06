@@ -1,5 +1,5 @@
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ActiveValue, sea_query::OnConflict};
 use hill_common::entity::administradora;
+use sea_orm::{ActiveValue, DatabaseConnection, DbErr, EntityTrait, sea_query::OnConflict};
 
 pub async fn upsert_administradoras(
     db: &DatabaseConnection,
@@ -19,7 +19,7 @@ pub async fn upsert_administradoras(
         })
         .collect();
 
-    use sea_orm::{Iterable, IdenStatic};
+    use sea_orm::{IdenStatic, Iterable};
     administradora::Entity::insert_many(active_models)
         .on_conflict(
             OnConflict::column(administradora::Column::Id)

@@ -59,7 +59,9 @@ fn parse_decimal(value: Option<&str>) -> Decimal {
 }
 
 fn parse_decimal_f64(value: Option<f64>) -> Decimal {
-    value.and_then(Decimal::from_f64_retain).unwrap_or(Decimal::ZERO)
+    value
+        .and_then(Decimal::from_f64_retain)
+        .unwrap_or(Decimal::ZERO)
 }
 
 fn parse_i32_f64(value: Option<f64>) -> i32 {
@@ -85,7 +87,10 @@ fn selected_pdvs<'a>(pdvs: &'a [NewPdv], pdv_uuid: Option<Uuid>) -> Vec<&'a NewP
     }
 }
 
-pub fn map_new_payload_to_sincronizacao(payload: NewSyncPayload, pdv_uuid: Option<Uuid>) -> Sincronizacao {
+pub fn map_new_payload_to_sincronizacao(
+    payload: NewSyncPayload,
+    pdv_uuid: Option<Uuid>,
+) -> Sincronizacao {
     let mut sinc = Sincronizacao {
         bicos: None,
         configuracoes: None,
@@ -119,7 +124,12 @@ pub fn map_new_payload_to_sincronizacao(payload: NewSyncPayload, pdv_uuid: Optio
     let produtos_por_id: HashMap<i32, &NewProduto> = cadastros
         .produtos
         .as_ref()
-        .map(|produtos| produtos.iter().map(|produto| (produto.id, produto)).collect())
+        .map(|produtos| {
+            produtos
+                .iter()
+                .map(|produto| (produto.id, produto))
+                .collect()
+        })
         .unwrap_or_default();
 
     let tanques_por_id: HashMap<i32, &NewTanque> = cadastros
@@ -234,7 +244,8 @@ pub fn map_new_payload_to_sincronizacao(payload: NewSyncPayload, pdv_uuid: Optio
                 conf.senha_usuario_ativo = tf_opt(pc.senha_usuario_ativo);
                 conf.diferenca_abastecimento = parse_decimal_f64(pc.diferenca_abastecimento);
                 conf.quantidade_maxima_gerada = parse_decimal_f64(pc.quantidade_maxima_gerada);
-                conf.quantidade_maxima_abastecimento = parse_i32_f64(pc.quantidade_maxima_abastecimento);
+                conf.quantidade_maxima_abastecimento =
+                    parse_i32_f64(pc.quantidade_maxima_abastecimento);
                 conf.controle_estoque_combustivel = tf_opt(pc.controle_estoque_combustivel);
                 conf.lista_todos_abastecimentos_pdv = tf_opt(pc.lista_todos_abastecimentos_pdv);
                 conf.imprime_recibo_espelho = tf_opt(pc.imprime_recibo_espelho);
@@ -538,7 +549,10 @@ pub fn map_new_payload_to_sincronizacao(payload: NewSyncPayload, pdv_uuid: Optio
                 p.sangria_lancamento_saida = all_true.clone();
                 p.desmembramento = all_true.clone();
                 p.libera_troco_maximo = all_true;
-            } else if let Some(gid) = u.grupo_permissao_id.filter(|gid| grupos_ativos.contains(gid)) {
+            } else if let Some(gid) = u
+                .grupo_permissao_id
+                .filter(|gid| grupos_ativos.contains(gid))
+            {
                 if let Some(recursos) = permissoes_por_grupo.get(&gid) {
                     let has_rec = |rec: &str| recursos.contains(rec);
 
@@ -564,8 +578,7 @@ pub fn map_new_payload_to_sincronizacao(payload: NewSyncPayload, pdv_uuid: Optio
                     p.operacoes_tef = Some(tf(has_rec("pdv_operacoes_tef")));
                     p.limite_desconto_acrescimo =
                         Some(tf(has_rec("pdv_limite_desconto_acrescimo")));
-                    p.sangria_lancamento_saida =
-                        Some(tf(has_rec("pdv_sangria_lancamento_saida")));
+                    p.sangria_lancamento_saida = Some(tf(has_rec("pdv_sangria_lancamento_saida")));
                     p.desmembramento = Some(tf(has_rec("pdv_desmembramento")));
                     p.libera_troco_maximo = Some(tf(has_rec("pdv_libera_troco_maximo")));
                 }

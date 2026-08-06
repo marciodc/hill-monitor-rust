@@ -1,7 +1,10 @@
 use hill_common::entity::forma_pagamento;
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
-pub async fn upsert_formas_pagamento(db: &DatabaseConnection, formas: &[hill_common::entity::FormaPagamento]) -> Result<(), DbErr> {
+pub async fn upsert_formas_pagamento(
+    db: &DatabaseConnection,
+    formas: &[hill_common::entity::FormaPagamento],
+) -> Result<(), DbErr> {
     if formas.is_empty() {
         return Ok(());
     }

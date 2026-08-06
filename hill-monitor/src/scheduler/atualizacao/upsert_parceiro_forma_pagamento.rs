@@ -10,7 +10,10 @@ pub async fn upsert_parceiro_formas_pagamento(
     }
 
     for f in formas {
-        if let Some(existing) = parceiro_forma_pagamento::Entity::find_by_id(f.id).one(db).await? {
+        if let Some(existing) = parceiro_forma_pagamento::Entity::find_by_id(f.id)
+            .one(db)
+            .await?
+        {
             let existing: parceiro_forma_pagamento::ActiveModel = existing.into();
             existing.delete(db).await?;
         }

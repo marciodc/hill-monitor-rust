@@ -1,7 +1,10 @@
 use hill_common::entity::produto;
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
-pub async fn upsert_produtos(db: &DatabaseConnection, produtos: &[hill_common::entity::Produto]) -> Result<(), DbErr> {
+pub async fn upsert_produtos(
+    db: &DatabaseConnection,
+    produtos: &[hill_common::entity::Produto],
+) -> Result<(), DbErr> {
     if produtos.is_empty() {
         return Ok(());
     }

@@ -1,7 +1,7 @@
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, QuerySelect};
+use crate::backend_url::sync_send_url;
 use hill_common::entity::afericao;
 use hill_common::net::HttpConn;
-use crate::backend_url::sync_send_url;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 use tracing::{error, info};
 
 #[derive(serde::Deserialize)]
@@ -22,7 +22,11 @@ pub async fn envia_afericoes(
     empresa_id: i32,
 ) -> Result<(), sea_orm::DbErr> {
     let afericoes = match afericao::Entity::find()
-        .filter(afericao::Column::Sincronizado.ne("T").or(afericao::Column::Sincronizado.is_null()))
+        .filter(
+            afericao::Column::Sincronizado
+                .ne("T")
+                .or(afericao::Column::Sincronizado.is_null()),
+        )
         .order_by_asc(afericao::Column::Id)
         .limit(50)
         .all(db)
@@ -30,7 +34,10 @@ pub async fn envia_afericoes(
     {
         Ok(list) => list,
         Err(e) => {
-            error!("EnvioDadosAfericao - Erro ao buscar aferições não sincronizadas: {:?}", e);
+            error!(
+                "EnvioDadosAfericao - Erro ao buscar aferições não sincronizadas: {:?}",
+                e
+            );
             return Err(e);
         }
     };
@@ -63,7 +70,10 @@ pub async fn envia_afericoes(
             "EnvioDadosAfericao - Enviando aferição {} para {}",
             id, url_with_query
         );
-        match http.post_json_servidor(&url_with_query, &payload.to_string(), token).await {
+        match http
+            .post_json_servidor(&url_with_query, &payload.to_string(), token)
+            .await
+        {
             Ok(response_body) => {
                 info!(
                     "EnvioDadosAfericao - Resposta HTTP recebida para aferição {}",
@@ -72,20 +82,32 @@ pub async fn envia_afericoes(
                 if let Ok(result) = serde_json::from_str::<SincronizacaoResponse>(&response_body) {
                     if result.afericao.and_then(|r| r.result).as_deref() == Some("success") {
                         let res = afericao::Entity::update_many()
-                            .col_expr(afericao::Column::Sincronizado, sea_orm::sea_query::Expr::value("T"))
+                            .col_expr(
+                                afericao::Column::Sincronizado,
+                                sea_orm::sea_query::Expr::value("T"),
+                            )
                             .filter(afericao::Column::Id.eq(id))
                             .exec(db)
                             .await;
                         if let Err(e) = res {
-                            error!("EnvioDadosAfericao - Erro ao atualizar status de sincronização da aferição: {:?}", e);
+                            error!(
+                                "EnvioDadosAfericao - Erro ao atualizar status de sincronização da aferição: {:?}",
+                                e
+                            );
                         } else {
-                            info!("EnvioDadosAfericao - Aferição {} sincronizada com sucesso.", id);
+                            info!(
+                                "EnvioDadosAfericao - Aferição {} sincronizada com sucesso.",
+                                id
+                            );
                         }
                     }
                 }
             }
             Err(e) => {
-                error!("EnvioDadosAfericao - Erro na requisição HTTP para a aferição {}: {:?}", id, e);
+                error!(
+                    "EnvioDadosAfericao - Erro na requisição HTTP para a aferição {}: {:?}",
+                    id, e
+                );
             }
         }
     }

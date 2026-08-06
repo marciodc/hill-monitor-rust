@@ -1,7 +1,10 @@
 use hill_common::entity::bico;
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, DbErr, EntityTrait};
 
-pub async fn upsert_bicos(db: &DatabaseConnection, bicos: &[hill_common::entity::Bico]) -> Result<(), DbErr> {
+pub async fn upsert_bicos(
+    db: &DatabaseConnection,
+    bicos: &[hill_common::entity::Bico],
+) -> Result<(), DbErr> {
     if bicos.is_empty() {
         return Ok(());
     }
