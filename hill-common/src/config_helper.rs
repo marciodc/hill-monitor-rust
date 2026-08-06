@@ -1,4 +1,4 @@
-use crate::entity::{configuracao, parametro, Configuracao};
+use crate::entity::{Configuracao, configuracao, parametro};
 use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
@@ -19,18 +19,19 @@ impl ConfigHelper {
     }
 
     pub async fn get_config_by_pdv(&self, pdv: Uuid) -> Result<Option<Configuracao>, DbErr> {
-        configuracao::Entity::find_by_id(pdv)
-            .one(&self.db)
-            .await
+        configuracao::Entity::find_by_id(pdv).one(&self.db).await
     }
 
     pub async fn list_configuracoes(&self) -> Result<Vec<Configuracao>, DbErr> {
         configuracao::Entity::find().all(&self.db).await
     }
 
-    pub async fn get_parametro(&self, chave: &str, pdv: Option<Uuid>) -> Result<Option<String>, DbErr> {
-        let mut query = parametro::Entity::find()
-            .filter(parametro::Column::Chave.eq(chave));
+    pub async fn get_parametro(
+        &self,
+        chave: &str,
+        pdv: Option<Uuid>,
+    ) -> Result<Option<String>, DbErr> {
+        let mut query = parametro::Entity::find().filter(parametro::Column::Chave.eq(chave));
         if let Some(pdv_id) = pdv {
             query = query.filter(parametro::Column::Pdv.eq(pdv_id));
         } else {
@@ -40,10 +41,15 @@ impl ConfigHelper {
         Ok(param.map(|p| p.valor))
     }
 
-    pub async fn set_parametro(&self, chave: &str, valor: &str, pdv: Option<Uuid>) -> Result<(), DbErr> {
+    pub async fn set_parametro(
+        &self,
+        chave: &str,
+        valor: &str,
+        pdv: Option<Uuid>,
+    ) -> Result<(), DbErr> {
         // Delete existing
-        let mut delete_query = parametro::Entity::delete_many()
-            .filter(parametro::Column::Chave.eq(chave));
+        let mut delete_query =
+            parametro::Entity::delete_many().filter(parametro::Column::Chave.eq(chave));
         if let Some(pdv_id) = pdv {
             delete_query = delete_query.filter(parametro::Column::Pdv.eq(pdv_id));
         } else {

@@ -32,7 +32,8 @@ impl HttpConn {
         debug!("HTTP POST {}", url);
         debug!("HTTP POST payload: {}", payload_str);
 
-        let response = self.client
+        let response = self
+            .client
             .post(url)
             .header("Authorization", token)
             .header("Content-Type", "application/json")
@@ -53,7 +54,8 @@ impl HttpConn {
     ) -> Result<String, reqwest::Error> {
         debug!("HTTP GET {}", url);
 
-        let response = self.client
+        let response = self
+            .client
             .get(url)
             .header("Authorization", token)
             .header("Content-Type", "application/json")

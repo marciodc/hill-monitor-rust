@@ -1,14 +1,16 @@
+use chrono::Datelike;
+use hill_common::certificado::{descriptografar_pfx_base64, descriptografar_texto_utf8};
 use hill_common::config_helper::ConfigHelper;
 use hill_common::entity::venda;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, PaginatorTrait,
-};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use tokio::time::{interval, Duration};
-use tracing::{error, info, warn};
-use chrono::Datelike;
 use hill_nfe::AcBrNfe;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
+    PaginatorTrait, QueryFilter,
+};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::time::{Duration, interval};
+use tracing::{error, info, warn};
 
 // Estruturas auxiliares para analisar respostas INI do ACBr
 struct StatusServicoResposta {
@@ -57,7 +59,11 @@ fn parse_consulta_nfe(ini_str: &str) -> Option<ConsultaNFeResposta> {
     let c_stat = sec.get("CStat")?.parse().ok()?;
     let n_prot = sec.get("NProt").unwrap_or("").to_string();
     let x_motivo = sec.get("XMotivo").unwrap_or("").to_string();
-    Some(ConsultaNFeResposta { c_stat, n_prot, x_motivo })
+    Some(ConsultaNFeResposta {
+        c_stat,
+        n_prot,
+        x_motivo,
+    })
 }
 
 fn parse_inutilizar_nfe(ini_str: &str) -> Option<InutilizarNFeResposta> {
@@ -67,7 +73,12 @@ fn parse_inutilizar_nfe(ini_str: &str) -> Option<InutilizarNFeResposta> {
     let n_prot = sec.get("NProt").unwrap_or("").to_string();
     let dh_recbto = sec.get("DhRecbto").unwrap_or("").to_string();
     let x_motivo = sec.get("XMotivo").unwrap_or("").to_string();
-    Some(InutilizarNFeResposta { c_stat, n_prot, dh_recbto, x_motivo })
+    Some(InutilizarNFeResposta {
+        c_stat,
+        n_prot,
+        dh_recbto,
+        x_motivo,
+    })
 }
 
 fn parse_cancelamento_nfe(ini_str: &str) -> Option<CancelamentoNFeResposta> {
@@ -77,7 +88,12 @@ fn parse_cancelamento_nfe(ini_str: &str) -> Option<CancelamentoNFeResposta> {
     let n_prot = sec.get("nProt").unwrap_or("").to_string();
     let dh_recbto = sec.get("DhRecbto").unwrap_or("").to_string();
     let xml = sec.get("XML").unwrap_or("").to_string();
-    Some(CancelamentoNFeResposta { c_stat, n_prot, dh_recbto, xml })
+    Some(CancelamentoNFeResposta {
+        c_stat,
+        n_prot,
+        dh_recbto,
+        xml,
+    })
 }
 
 fn parse_envio_retorno(ini_str: &str) -> Option<EnvioRetornoResposta> {
@@ -128,17 +144,31 @@ async fn setup_acbr_nfe(
         }
     }
 
-    let cert_pfx = config_helper
-        .get_parametro("NF_CertificadoArquivo", Some(pdv_config.id))
+    let cert_pfx_protegido = config_helper
+        .get_parametro("NF_CertificadoDadosPFX", Some(pdv_config.id))
         .await
         .unwrap_or(None)
         .unwrap_or_default();
 
-    let cert_senha = config_helper
+    let cert_pfx = if cert_pfx_protegido.is_empty() {
+        String::new()
+    } else {
+        descriptografar_pfx_base64(&cert_pfx_protegido)
+            .map_err(|e| format!("Erro ao ler NF_CertificadoDadosPFX: {e}"))?
+    };
+
+    let cert_senha_protegida = config_helper
         .get_parametro("NF_CertificadoSenha", Some(pdv_config.id))
         .await
         .unwrap_or(None)
         .unwrap_or_default();
+
+    let cert_senha = if cert_senha_protegida.is_empty() {
+        String::new()
+    } else {
+        descriptografar_texto_utf8(&cert_senha_protegida)
+            .map_err(|e| format!("Erro ao ler NF_CertificadoSenha: {e}"))?
+    };
 
     let token_id = config_helper
         .get_parametro("NFe_IdToken", Some(pdv_config.id))
@@ -195,22 +225,42 @@ async fn setup_acbr_nfe(
         ("SoftwareHouse", "WebSite", "www.hilltecnologia.com.br"),
         ("SoftwareHouse", "Email", "contato@hilltecnologia.com.br"),
         ("SoftwareHouse", "Telefone", "82991741328"),
-        ("SoftwareHouse", "Responsavel", "José Valdomiro da Silva Santos"),
+        (
+            "SoftwareHouse",
+            "Responsavel",
+            "José Valdomiro da Silva Santos",
+        ),
         ("Emissor", "CNPJ", pdv_config.cnpj.as_deref().unwrap_or("")),
-        ("Emissor", "RazaoSocial", pdv_config.razao_social.as_deref().unwrap_or("")),
-        ("Emissor", "NomeFantasia", pdv_config.nome_fantasia.as_deref().unwrap_or("")),
-        ("Emissor", "Telefone", pdv_config.fone.as_deref().unwrap_or("")),
+        (
+            "Emissor",
+            "RazaoSocial",
+            pdv_config.razao_social.as_deref().unwrap_or(""),
+        ),
+        (
+            "Emissor",
+            "NomeFantasia",
+            pdv_config.nome_fantasia.as_deref().unwrap_or(""),
+        ),
+        (
+            "Emissor",
+            "Telefone",
+            pdv_config.fone.as_deref().unwrap_or(""),
+        ),
         ("DFe", "SSLCryptLib", "3"),
         ("DFe", "SSLHttpLib", "3"),
         ("DFe", "SSLXmlSignLib", "4"),
-        ("DFe", "ArquivoPFX", &cert_pfx),
+        ("DFe", "DadosPFX", &cert_pfx),
         ("DFe", "Senha", &cert_senha),
         ("DFe", "UF", pdv_config.uf.as_deref().unwrap_or("")),
         ("DFe", "TimeZoneModo", "0"),
         ("DFe", "VerificarValidade", "1"),
         ("NFe", "IdCSC", &token_id),
         ("NFe", "CSC", &token_csc),
-        ("NFe", "Ambiente", if tipo_ambiente == "1" { "0" } else { "1" }),
+        (
+            "NFe",
+            "Ambiente",
+            if tipo_ambiente == "1" { "0" } else { "1" },
+        ),
         ("NFe", "SalvarWS", "0"),
         ("NFe", "Timeout", "5000"),
         ("NFe", "TimeoutPorThread", "100"),
@@ -221,7 +271,11 @@ async fn setup_acbr_nfe(
         ("NFe", "Tentativas", "5"),
         ("NFe", "SSLType", "5"),
         ("NFe", "PathSalvar", &format!("{}/NFCe", base_dir_str)),
-        ("NFe", "PathSchemas", &format!("{}/Schemas/NFe", base_dir_str)),
+        (
+            "NFe",
+            "PathSchemas",
+            &format!("{}/Schemas/NFe", base_dir_str),
+        ),
         ("NFe", "SalvarArq", "1"),
         ("NFe", "SepararPorCNPJ", "1"),
         ("NFe", "SepararPorModelo", "1"),
@@ -232,7 +286,11 @@ async fn setup_acbr_nfe(
         ("NFe", "SalvarApenasNFeProcessadas", "1"),
         ("NFe", "PathNFe", &format!("{}/NFCe", base_dir_str)),
         ("NFe", "PathInu", &format!("{}/NFCe/Inu", base_dir_str)),
-        ("NFe", "PathEvento", &format!("{}/NFCe/Evento", base_dir_str)),
+        (
+            "NFe",
+            "PathEvento",
+            &format!("{}/NFCe/Evento", base_dir_str),
+        ),
         ("NFe", "IdCSRT", &nfe_id_csrt),
         ("NFe", "CSRT", &nfe_csrt),
     ];
@@ -315,7 +373,11 @@ async fn processa_nota_inconsistente(
             let mut active_venda: venda::ActiveModel = venda.into();
             if res_inutilizada {
                 let _ = config_helper
-                    .set_parametro("PDV_Contingencia", "F", Some(active_venda.pdv.clone().unwrap()))
+                    .set_parametro(
+                        "PDV_Contingencia",
+                        "F",
+                        Some(active_venda.pdv.clone().unwrap()),
+                    )
                     .await;
                 active_venda.nfe_aguardando_envio = ActiveValue::Set(Some("F".to_string()));
                 active_venda.atualiza_retaguarda = ActiveValue::Set(Some("T".to_string()));
@@ -388,13 +450,16 @@ async fn processa_nota_inconsistente(
             let mut active_venda: venda::ActiveModel = updated_venda.into();
             if cancelada {
                 let _ = config_helper
-                    .set_parametro("PDV_Contingencia", "F", Some(active_venda.pdv.clone().unwrap()))
+                    .set_parametro(
+                        "PDV_Contingencia",
+                        "F",
+                        Some(active_venda.pdv.clone().unwrap()),
+                    )
                     .await;
                 active_venda.nfe_cancelada = ActiveValue::Set(Some("T".to_string()));
                 active_venda.nfe_cancelamento_data = ActiveValue::Set(dh_recbto);
-                active_venda.nfe_cancelamento_motivo = ActiveValue::Set(Some(
-                    "CANCELAMENTO DEVIDO A PROBLEMAS TECNICOS".to_string(),
-                ));
+                active_venda.nfe_cancelamento_motivo =
+                    ActiveValue::Set(Some("CANCELAMENTO DEVIDO A PROBLEMAS TECNICOS".to_string()));
                 active_venda.nfe_cancelamento_protocolo = ActiveValue::Set(c_prot);
                 active_venda.nfe_cancelamento_xml = ActiveValue::Set(xml);
                 active_venda.nfe_aguardando_envio = ActiveValue::Set(Some("F".to_string()));
@@ -446,14 +511,15 @@ async fn processa_nota_contingencia(
         let _ = nfe.gravar_xml(0, "", "");
         let updated_xml = nfe.obter_xml(0).unwrap_or_default();
 
-        let dh_recbto = chrono::NaiveDateTime::parse_from_str(
-            &resp.retorno_dh_recbto,
-            "%d/%m/%Y %H:%M:%S",
-        )
-        .or_else(|_| {
-            chrono::NaiveDateTime::parse_from_str(&resp.retorno_dh_recbto, "%Y-%m-%dT%H:%M:%S")
-        })
-        .ok();
+        let dh_recbto =
+            chrono::NaiveDateTime::parse_from_str(&resp.retorno_dh_recbto, "%d/%m/%Y %H:%M:%S")
+                .or_else(|_| {
+                    chrono::NaiveDateTime::parse_from_str(
+                        &resp.retorno_dh_recbto,
+                        "%Y-%m-%dT%H:%M:%S",
+                    )
+                })
+                .ok();
 
         let mut active_venda: venda::ActiveModel = venda.into();
         active_venda.nfe_xml = ActiveValue::Set(Some(updated_xml));
@@ -629,8 +695,9 @@ impl ContingenciaScheduler {
                         }
                     };
 
-                    let status_cstat =
-                        parse_status_servico(&status_resp_str).map(|s| s.c_stat).unwrap_or(0);
+                    let status_cstat = parse_status_servico(&status_resp_str)
+                        .map(|s| s.c_stat)
+                        .unwrap_or(0);
                     if status_cstat != 107 {
                         info!(
                             "Status do serviço SEFAZ não está pronto (cStat = {}). Ignorando.",

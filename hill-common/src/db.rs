@@ -32,7 +32,10 @@ pub async fn establish_connection(
         db_user, db_pass, db_ip, db_port
     );
 
-    info!("Conectando ao banco de dados PostgreSQL em {}:{}...", db_ip, db_port);
+    info!(
+        "Conectando ao banco de dados PostgreSQL em {}:{}...",
+        db_ip, db_port
+    );
 
     let mut opt = ConnectOptions::new(database_url);
     opt.max_connections(5)
