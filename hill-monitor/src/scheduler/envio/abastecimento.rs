@@ -1,17 +1,28 @@
-use crate::backend_url::sync_send_url;
+use crate::backend_url::api_base_url;
+use chrono::SecondsFormat;
 use hill_common::entity::abastecimento;
 use hill_common::net::HttpConn;
+use rust_decimal::prelude::ToPrimitive;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 use tracing::{error, info};
+use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
-struct SincronizacaoResponse {
-    abastecimentos: Option<SincronizacaoResult>,
+struct AbastecimentosPushResponse {
+    resultados: Option<Vec<AbastecimentosPushResultado>>,
 }
 
 #[derive(serde::Deserialize)]
-struct SincronizacaoResult {
-    result: Option<String>,
+struct AbastecimentosPushResultado {
+    uuid_externo: String,
+    ok: bool,
+}
+
+fn map_status(status: Option<&str>) -> &'static str {
+    match status.unwrap_or_default().to_ascii_lowercase().as_str() {
+        "a" | "aberto" => "aberto",
+        _ => "finalizado",
+    }
 }
 
 pub async fn envia_abastecimentos(
@@ -28,7 +39,7 @@ pub async fn envia_abastecimentos(
                 .or(abastecimento::Column::Sincronizado.is_null()),
         )
         .order_by_asc(abastecimento::Column::Id)
-        .limit(50)
+        .limit(100)
         .all(db)
         .await
     {
@@ -51,76 +62,92 @@ pub async fn envia_abastecimentos(
         abastecimentos.len()
     );
 
-    for abast in abastecimentos {
-        let id = abast.id;
-        let payload = serde_json::json!({
-            "tipo": "abastecimentos",
-            "abastecimentos": [
-                {
-                    "id": id.to_string(),
-                    "empresa": empresa_id,
-                    "bico_id": abast.bico_id,
-                    "retorno": abast.retorno,
-                    "quantidade": format!("{:.2}", abast.quantidade).replace('.', ","),
-                    "valor_unitario": format!("{:.2}", abast.valor_unitario).replace('.', ","),
-                    "total": format!("{:.2}", abast.total).replace('.', ","),
-                    "tempo": abast.tempo.as_deref().unwrap_or("").trim(),
-                    "data_hora": abast.data_hora.format("%d/%m/%Y %H:%M:%S").to_string(),
-                    "encerrante_inicial": format!("{:.2}", abast.encerrante_inicial).replace('.', ","),
-                    "encerrante_final": format!("{:.2}", abast.encerrante_final).replace('.', ","),
-                    "rfid_frentista": abast.rfid_frentista,
-                    "rfid_cliente": abast.rfid_cliente,
-                    "gerado": abast.gerado,
-                    "desmembramento_id": abast.desmembramento_id.map(|uid| uid.to_string()),
-                    "full_string": abast.full_string,
-                }
-            ]
-        });
+    let itens: Vec<serde_json::Value> = abastecimentos
+        .iter()
+        .map(|abast| {
+            serde_json::json!({
+                "uuid_externo": abast.id.to_string(),
+                "bico_id": abast.bico_id,
+                "litros": abast.quantidade.to_f64().unwrap_or(0.0),
+                "valor_unitario": abast.valor_unitario.to_f64().unwrap_or(0.0),
+                "valor_total": abast.total.to_f64().unwrap_or(0.0),
+                "data_hora": abast.data_hora.and_utc().to_rfc3339_opts(SecondsFormat::Millis, true),
+                "status": map_status(abast.status.as_deref()),
+                "encerrante_inicial": abast.encerrante_inicial.to_f64().unwrap_or(0.0),
+                "encerrante_final": abast.encerrante_final.to_f64().unwrap_or(0.0),
+                "cliente_rfid": abast.rfid_cliente,
+            })
+        })
+        .collect();
 
-        let url_with_query = sync_send_url(backend_url, "abastecimentos");
-        info!(
-            "EnvioDadosAbastecimento - Enviando abastecimento {} para {}",
-            id, url_with_query
-        );
-        match http
-            .post_json_servidor(&url_with_query, &payload.to_string(), token)
-            .await
-        {
-            Ok(response_body) => {
-                info!(
-                    "EnvioDadosAbastecimento - Resposta HTTP recebida para abastecimento {}",
-                    id
-                );
-                if let Ok(result) = serde_json::from_str::<SincronizacaoResponse>(&response_body) {
-                    if result.abastecimentos.and_then(|r| r.result).as_deref() == Some("success") {
-                        let res = abastecimento::Entity::update_many()
-                            .col_expr(
-                                abastecimento::Column::Sincronizado,
-                                sea_orm::sea_query::Expr::value("T"),
-                            )
-                            .filter(abastecimento::Column::Id.eq(id))
-                            .exec(db)
-                            .await;
-                        if let Err(e) = res {
-                            error!(
-                                "EnvioDadosAbastecimento - Erro ao atualizar status de sincronização no banco: {:?}",
-                                e
-                            );
-                        } else {
-                            info!(
-                                "EnvioDadosAbastecimento - Abastecimento {} sincronizado com sucesso.",
-                                id
-                            );
+    let payload = serde_json::json!({
+        "empresa_id": empresa_id,
+        "itens": itens,
+    });
+
+    let url = format!("{}/pdv/abastecimentos", api_base_url(backend_url));
+    info!(
+        "EnvioDadosAbastecimento - Enviando lote de {} abastecimentos para {}",
+        abastecimentos.len(),
+        url
+    );
+
+    match http.post_json_servidor(&url, &payload.to_string(), token).await {
+        Ok(response_body) => {
+            let mut ids_sucesso: Vec<Uuid> = Vec::new();
+
+            if let Ok(result) = serde_json::from_str::<AbastecimentosPushResponse>(&response_body)
+            {
+                if let Some(resultados) = result.resultados {
+                    for r in resultados {
+                        if r.ok {
+                            if let Ok(id) = Uuid::parse_str(&r.uuid_externo) {
+                                ids_sucesso.push(id);
+                            }
                         }
                     }
                 }
-            }
-            Err(e) => {
+            } else {
                 error!(
-                    "EnvioDadosAbastecimento - Erro na requisição HTTP para o abastecimento {}: {:?}",
-                    id, e
+                    "EnvioDadosAbastecimento - Resposta fora do contrato esperado de /api/pdv/abastecimentos: {}",
+                    response_body
                 );
             }
+
+            if ids_sucesso.is_empty() {
+                info!(
+                    "EnvioDadosAbastecimento - Nenhum abastecimento confirmado como sincronizado neste lote."
+                );
+                return Ok(());
+            }
+
+            let total_sucesso = ids_sucesso.len();
+            let res = abastecimento::Entity::update_many()
+                .col_expr(
+                    abastecimento::Column::Sincronizado,
+                    sea_orm::sea_query::Expr::value("T"),
+                )
+                .filter(abastecimento::Column::Id.is_in(ids_sucesso))
+                .exec(db)
+                .await;
+
+            if let Err(e) = res {
+                error!(
+                    "EnvioDadosAbastecimento - Erro ao atualizar status de sincronização no banco: {:?}",
+                    e
+                );
+            } else {
+                info!(
+                    "EnvioDadosAbastecimento - {} abastecimentos sincronizados com sucesso.",
+                    total_sucesso
+                );
+            }
+        }
+        Err(e) => {
+            error!(
+                "EnvioDadosAbastecimento - Erro na requisição HTTP do lote de abastecimentos: {:?}",
+                e
+            );
         }
     }
 
