@@ -161,7 +161,7 @@ fn validar_senha_pdv_scrypt(senha_digitada: &str, hash_armazenado: &str) -> bool
     }
     let log_n = n.ilog2() as u8;
 
-    let Ok(params) = Params::new(log_n, r, p, esperado.len()) else {
+    let Ok(params) = Params::new(log_n, r, p) else {
         return false;
     };
 

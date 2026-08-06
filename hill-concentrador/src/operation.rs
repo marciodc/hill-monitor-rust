@@ -52,7 +52,8 @@ impl ConcentradorOperacao {
             ORDER BY b.numero
         "#;
 
-        let rows = match db.query_all(Statement::from_string(DbBackend::Postgres, query.to_string())).await {
+        let statement = Statement::from_string(DbBackend::Postgres, query.to_string());
+        let rows = match db.query_all_raw(statement).await {
             Ok(r) => r,
             Err(e) => {
                 error!("Erro ao consultar bicos do banco de dados: {:?}", e);

@@ -1,7 +1,10 @@
 use crate::backend_url::sync_send_url;
 use hill_common::entity::afericao;
 use hill_common::net::HttpConn;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder,
+    QuerySelect,
+};
 use tracing::{error, info};
 
 #[derive(serde::Deserialize)]

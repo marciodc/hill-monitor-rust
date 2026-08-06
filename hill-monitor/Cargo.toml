@@ -10,20 +10,20 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-appender = "0.2.3"
 rust-ini = "0.21.0"
 single-instance = "0.3.3"
-axum = { version = "0.7.5", features = ["ws"] }
-tower-http = { version = "0.5.2", features = ["cors", "fs"] }
+axum = { version = "0.8.9", features = ["ws"] }
+tower-http = { version = "0.7.0", features = ["cors", "fs"] }
 serde_json = "1.0"
 hill-common = { path = "../hill-common" }
 hill-concentrador = { path = "../hill-concentrador" }
 hill-nfe = { path = "../hill-nfe" }
 hill-pdv = { path = "../hill-pdv" }
 uuid = { version = "1.8.0", features = ["v4", "serde"] }
-sqlx = { version = "0.7.4", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid", "rust_decimal"] }
-sea-orm = { version = "1.0", features = ["sqlx-postgres", "runtime-tokio-native-tls", "macros"] }
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "tls-native-tls", "postgres", "chrono", "uuid", "rust_decimal"] }
+sea-orm = { version = "2.0.1", features = ["sqlx-postgres", "runtime-tokio-native-tls", "macros"] }
 serde = { version = "1.0.203", features = ["derive"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 rust_decimal = "1.35"
-base64 = "0.22"
+base64 = "0.23.1"
 image = { version = "0.25", default-features = false, features = ["ico", "png"] }
 
 
@@ -32,10 +32,10 @@ winres = "0.1"
 image = { version = "0.25", default-features = false, features = ["ico", "png"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-ksni = "0.2.2"
+ksni = "0.3.6"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-tray-item = "0.8"
+tray-item = "0.10"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",

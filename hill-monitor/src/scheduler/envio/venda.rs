@@ -1,7 +1,10 @@
 use crate::backend_url::sync_send_url;
 use hill_common::entity::{abastecimento, venda, venda_item, venda_pagamento};
 use hill_common::net::HttpConn;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder,
+    QuerySelect,
+};
 use tracing::{error, info};
 use uuid::Uuid;
 

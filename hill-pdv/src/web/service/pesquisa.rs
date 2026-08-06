@@ -4,7 +4,7 @@ use hill_common::entity::{
     TabelaPreco, Usuario, Vendedor,
 };
 use rust_decimal::Decimal;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder};
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Clone)]
@@ -157,7 +157,7 @@ impl PesquisaService {
             .await
             .unwrap_or_default()
             .into_iter()
-            .skip(((pagina.unwrap_or(1).max(1) - 1) * 20) as usize)
+            .skip(((std::cmp::max(pagina.unwrap_or(1), 1) - 1) * 20) as usize)
             .take(20)
             .collect::<Vec<Produto>>();
 

@@ -5,6 +5,8 @@ mod backend_url;
 mod config;
 mod scheduler;
 
+#[cfg(target_os = "linux")]
+use ksni::TrayMethods;
 use single_instance::SingleInstance;
 use std::env;
 use tracing::{error, info};
@@ -239,7 +241,6 @@ fn setup_logging(
     log_dir: &std::path::Path,
     file_level: &str,
     console_level: &str,
-    console_enabled: bool,
 ) -> Option<tracing_appender::non_blocking::WorkerGuard> {
     // Daily rotating file appender (e.g. monitor.2026-08-05.log)
     let file_appender = tracing_appender::rolling::RollingFileAppender::builder()
@@ -256,6 +257,9 @@ fn setup_logging(
         .with_filter(tracing_subscriber::EnvFilter::new(normalize_log_level(
             file_level,
         )));
+
+    #[cfg(target_os = "windows")]
+    let console_enabled = normalize_log_level(console_level) != "off";
 
     #[cfg(target_os = "windows")]
     let console_layer = if console_enabled {
@@ -347,22 +351,19 @@ FABRICANTE=companytec
         }
     };
 
+    let console_enabled = is_enabled_flag(&ini.exibir_terminal);
+
     #[cfg(target_os = "windows")]
-    maybe_enable_debug_console(is_enabled_flag(&ini.exibir_terminal));
+    maybe_enable_debug_console(console_enabled);
 
     // 3. Setup Logging
     let log_dir = exe_dir.join("Log");
-    let console_level = if is_enabled_flag(&ini.exibir_terminal) {
+    let console_level = if console_enabled {
         ini.log_terminal.as_str()
     } else {
         "off"
     };
-    let _guard = setup_logging(
-        &log_dir,
-        &ini.log,
-        console_level,
-        is_enabled_flag(&ini.exibir_terminal),
-    );
+    let _guard = setup_logging(&log_dir, &ini.log, console_level);
 
     info!("Iniciando hill-monitor...");
     info!("Lendo arquivo de configuração de: {:?}", ini_path);
@@ -507,8 +508,9 @@ FABRICANTE=companytec
                     width: width as i32,
                     height: height as i32,
                 };
-                let svc = ksni::TrayService::new(tray);
-                svc.spawn();
+                if let Err(e) = tray.spawn().await {
+                    error!("Erro ao iniciar ícone de bandeja via ksni: {:?}", e);
+                }
             }
             Err(e) => {
                 error!("Erro ao decodificar PNG embutido para a bandeja: {:?}", e);

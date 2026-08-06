@@ -3,7 +3,10 @@ use chrono::SecondsFormat;
 use hill_common::entity::abastecimento;
 use hill_common::net::HttpConn;
 use rust_decimal::prelude::ToPrimitive;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder,
+    QuerySelect,
+};
 use tracing::{error, info};
 use uuid::Uuid;
 
