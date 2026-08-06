@@ -7,10 +7,87 @@ mod scheduler;
 
 #[cfg(target_os = "linux")]
 use ksni::TrayMethods;
+use fs2::FileExt;
 use single_instance::SingleInstance;
 use std::env;
+use std::fs::{File, OpenOptions};
+use std::path::PathBuf;
 use tracing::{error, info};
 use tracing_subscriber::prelude::*;
+
+enum InstanceGuard {
+    Primary(SingleInstance),
+    Fallback(FileLockGuard),
+}
+
+impl InstanceGuard {
+    fn is_single(&self) -> bool {
+        match self {
+            Self::Primary(instance) => instance.is_single(),
+            Self::Fallback(lock) => lock.is_single(),
+        }
+    }
+}
+
+struct FileLockGuard {
+    _file: File,
+    is_single: bool,
+}
+
+impl FileLockGuard {
+    fn acquire(name: &str) -> Result<Self, std::io::Error> {
+        let path = instance_lock_path(name);
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .open(path)?;
+
+        let is_single = file.try_lock_exclusive().is_ok();
+
+        Ok(Self {
+            _file: file,
+            is_single,
+        })
+    }
+
+    fn is_single(&self) -> bool {
+        self.is_single
+    }
+}
+
+fn instance_lock_path(name: &str) -> PathBuf {
+    let sanitized = name
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' => ch,
+            _ => '_',
+        })
+        .collect::<String>();
+
+    env::temp_dir().join(format!("{sanitized}.lock"))
+}
+
+fn initialize_single_instance(name: &str) -> Result<InstanceGuard, String> {
+    match SingleInstance::new(name) {
+        Ok(instance) => Ok(InstanceGuard::Primary(instance)),
+        Err(err) => {
+            eprintln!(
+                "Aviso: verificação primária de instância única indisponível ({err:?}). \
+                 Usando lock em arquivo como fallback."
+            );
+            FileLockGuard::acquire(name)
+                .map(InstanceGuard::Fallback)
+                .map_err(|lock_err| {
+                    format!(
+                        "Falha ao inicializar verificação de instância única: {err:?}; \
+                         fallback em arquivo também falhou: {lock_err}"
+                    )
+                })
+        }
+    }
+}
 
 fn is_enabled_flag(value: &str) -> bool {
     matches!(
@@ -306,8 +383,8 @@ fn setup_logging(
 #[tokio::main]
 async fn main() {
     // 1. Single Instance Check
-    let instance = SingleInstance::new("br.com.hilltecnologia.monitor")
-        .expect("Falha ao inicializar verificação de instância única.");
+    let instance = initialize_single_instance("br.com.hilltecnologia.monitor")
+        .unwrap_or_else(|message| panic!("{message}"));
     if !instance.is_single() {
         eprintln!("Já existe uma instância do aplicativo em execução.");
         std::process::exit(1);

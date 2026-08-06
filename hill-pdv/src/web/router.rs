@@ -11,19 +11,19 @@ pub fn create_router(state: AppState) -> Router {
         .route("/abastecimentos", get(controller::abastecimentos::listar_abastecimentos))
         .route("/abastecimento", get(controller::abastecimentos::listar_abastecimentos))
         .route(
-            "/abastecimento/:id/user",
+            "/abastecimento/{id}/user",
             get(controller::abastecimentos::listar_abastecimentos_usuario),
         )
         .route(
-            "/abastecimento/:id",
+            "/abastecimento/{id}",
             get(controller::abastecimentos::localizar_abastecimento),
         )
         .route(
-            "/abastecimento/:pdv/:id/seleciona",
+            "/abastecimento/{pdv}/{id}/seleciona",
             post(controller::abastecimentos::seleciona_abastecimento),
         )
         .route(
-            "/abastecimento/:pdv/:id/desseleciona",
+            "/abastecimento/{pdv}/{id}/desseleciona",
             post(controller::abastecimentos::desseleciona_abastecimento),
         )
         .route(
@@ -31,7 +31,7 @@ pub fn create_router(state: AppState) -> Router {
             get(controller::concentrador::status),
         )
         .route(
-            "/concentrador/encerrante/:retorno",
+            "/concentrador/encerrante/{retorno}",
             get(controller::concentrador::consulta_encerrante),
         )
         .route(
@@ -54,11 +54,11 @@ pub fn create_router(state: AppState) -> Router {
             post(controller::pesquisa::pesquisa_tabela_preco),
         )
         .route(
-            "/venda-item/venda/:venda_id",
+            "/venda-item/venda/{venda_id}",
             get(controller::venda_item::lista_itens),
         )
         .route(
-            "/nfce/enviar_nfe/:numero_nota",
+            "/nfce/enviar_nfe/{numero_nota}",
             get(controller::nfce::enviar_nfe),
         )
         .route("/ws", get(super::websocket::ws_handler))
