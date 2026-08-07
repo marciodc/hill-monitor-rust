@@ -413,6 +413,7 @@ LOG_SQL=F
 LOG=ERROR
 LOG_TERMINAL=ERROR
 EXIBIR_TERMINAL=F
+ACIONAR_CONCENTRADOR=T
 FABRICANTE=companytec
 ";
         if let Err(e) = std::fs::write(&ini_path, default_ini_content) {
@@ -452,6 +453,7 @@ FABRICANTE=companytec
     info!("Exibir terminal: {}", ini.exibir_terminal);
     info!("SQL Log: {}", ini.log_sql);
     info!("Fabricante: {}", ini.fabricante);
+    info!("Acionar concentrador: {}", ini.acionar_concentrador);
 
     // 4. Connect to Database
     let log_sql = is_enabled_flag(&ini.log_sql);
@@ -469,22 +471,31 @@ FABRICANTE=companytec
         };
 
     // 5. Initialize Concentrador (Serial Port & Scheduler)
-    let config_helper = hill_common::config_helper::ConfigHelper::new(db_conn.clone());
-    let serial_port = config_helper
-        .get_parametro("CONCENTRADOR_Porta", None)
-        .await
-        .unwrap_or(None)
-        .unwrap_or_else(|| "COM1".to_string());
+    let acionar_concentrador = is_enabled_flag(&ini.acionar_concentrador);
+    let (concentrador_scheduler, concentrador_op) = if acionar_concentrador {
+        let config_helper = hill_common::config_helper::ConfigHelper::new(db_conn.clone());
+        let serial_port = config_helper
+            .get_parametro("CONCENTRADOR_Porta", None)
+            .await
+            .unwrap_or(None)
+            .unwrap_or_else(|| "COM1".to_string());
 
-    info!(
-        "Inicializando comunicação com o concentrador serial na porta: {}",
-        serial_port
-    );
-    let com = hill_concentrador::com::ConcentradorCom::new(&serial_port);
-    let op = hill_concentrador::operation::ConcentradorOperacao::new(com, &ini.fabricante);
-    let concentrador_scheduler =
-        hill_concentrador::scheduler::ConcentradorScheduler::new(op, db_conn.clone());
-    concentrador_scheduler.start();
+        info!(
+            "Inicializando comunicação com o concentrador serial na porta: {}",
+            serial_port
+        );
+        let com = hill_concentrador::com::ConcentradorCom::new(&serial_port);
+        let op = hill_concentrador::operation::ConcentradorOperacao::new(com, &ini.fabricante);
+        let scheduler =
+            hill_concentrador::scheduler::ConcentradorScheduler::new(op.clone(), db_conn.clone());
+        scheduler.start();
+        (Some(scheduler), op)
+    } else {
+        info!("Concentrador desabilitado via monitor.ini.");
+        let com = hill_concentrador::com::ConcentradorCom::disabled();
+        let op = hill_concentrador::operation::ConcentradorOperacao::new(com, "disabled");
+        (None, op)
+    };
 
     // 6. Start Monitor Schedulers (Atualizacao, Contingencia, Envio)
     let monitor_schedulers = scheduler::MonitorSchedulers::new(db_conn.clone());
@@ -493,7 +504,7 @@ FABRICANTE=companytec
     // 7. Start HTTP Web Server using Axum on the local machine default port
     let app_state = hill_pdv::web::state::AppState {
         db: db_conn.clone(),
-        concentrador_op: concentrador_scheduler.operation(),
+        concentrador_op: concentrador_op.clone(),
     };
     let app = hill_pdv::web::create_router(app_state);
     let bind_addr = "0.0.0.0:5000";
@@ -507,7 +518,9 @@ FABRICANTE=companytec
                 "Erro ao vincular listener TCP para o Servidor Web em {}: {:?}",
                 bind_addr, e
             );
-            concentrador_scheduler.stop();
+            if let Some(concentrador_scheduler) = &concentrador_scheduler {
+                concentrador_scheduler.stop();
+            }
             monitor_schedulers.stop();
             return;
         }
@@ -604,7 +617,9 @@ FABRICANTE=companytec
     let (_tx, rx) = tokio::sync::oneshot::channel::<()>();
     let _ = rx.await;
 
-    concentrador_scheduler.stop();
+    if let Some(concentrador_scheduler) = &concentrador_scheduler {
+        concentrador_scheduler.stop();
+    }
     monitor_schedulers.stop();
     info!("Aplicação finalizada.");
 }

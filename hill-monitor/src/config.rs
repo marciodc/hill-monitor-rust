@@ -11,6 +11,7 @@ pub struct IniFile {
     pub log_terminal: String,
     pub exibir_terminal: String,
     pub fabricante: String,
+    pub acionar_concentrador: String,
 }
 
 impl IniFile {
@@ -44,6 +45,9 @@ impl IniFile {
                         ini.exibir_terminal = val.to_string()
                     }
                     "FABRICANTE" => ini.fabricante = val.to_string(),
+                    "ACIONAR_CONCENTRADOR" | "CONECTA_CONCENTRADOR" => {
+                        ini.acionar_concentrador = val.to_string()
+                    }
                     _ => {}
                 }
             }

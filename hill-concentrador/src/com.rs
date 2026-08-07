@@ -19,7 +19,7 @@ pub struct CommandRequest {
 
 #[derive(Clone)]
 pub struct ConcentradorCom {
-    tx: mpsc::Sender<CommandRequest>,
+    tx: Option<mpsc::Sender<CommandRequest>>,
 }
 
 impl ConcentradorCom {
@@ -108,10 +108,18 @@ impl ConcentradorCom {
             }
         });
 
-        Self { tx }
+        Self { tx: Some(tx) }
+    }
+
+    pub fn disabled() -> Self {
+        Self { tx: None }
     }
 
     async fn enqueue_command(&self, command: String, expect_response: bool) -> String {
+        let Some(tx) = &self.tx else {
+            return String::new();
+        };
+
         let (response_tx, response_rx) = oneshot::channel();
         let req = CommandRequest {
             command,
@@ -123,7 +131,7 @@ impl ConcentradorCom {
             },
         };
 
-        if let Err(e) = self.tx.send(req).await {
+        if let Err(e) = tx.send(req).await {
             error!("Erro ao enfileirar comando serial: {:?}", e);
             return String::new();
         }
