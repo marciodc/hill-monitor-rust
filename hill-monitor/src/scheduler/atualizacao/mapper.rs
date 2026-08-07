@@ -174,7 +174,7 @@ fn map_produto(produto: &NewProduto) -> hill_common::entity::Produto {
         setor_impressao_4: None,
         exclusivo_kit: None,
         cest: produto.cest.clone(),
-        cfop: 0,
+        cfop: parse_i32(produto.cfop_saida_padrao.as_deref(), 0),
         aliquota: parse_decimal_f64(produto.aliquota_icms_simples),
         aliquota_cofins: parse_decimal_f64(produto.aliq_cofins_pct),
         aliquota_pis: parse_decimal_f64(produto.aliq_pis_pct),
