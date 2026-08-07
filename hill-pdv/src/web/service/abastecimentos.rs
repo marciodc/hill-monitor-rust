@@ -1,8 +1,7 @@
 use crate::web::service::response::ApiResponse;
-use hill_common::entity::{abastecimento, Abastecimento};
+use hill_common::entity::{Abastecimento, abastecimento};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter,
 };
 use uuid::Uuid;
 
@@ -15,7 +14,7 @@ impl AbastecimentoService {
         Self { db }
     }
 
-    pub async fn listar_abastecimentos(&self) -> Result<Vec<Abastecimento>, DbErr> {
+    pub async fn lista_abastecimentos(&self) -> Result<Vec<Abastecimento>, DbErr> {
         abastecimento::Entity::find()
             .filter(abastecimento::Column::Status.eq("P"))
             .filter(abastecimento::Column::Pdv.is_null())
@@ -23,7 +22,7 @@ impl AbastecimentoService {
             .await
     }
 
-    pub async fn listar_abastecimentos_usuario(
+    pub async fn lista_abastecimentos_usuario(
         &self,
         user_rfid: &str,
     ) -> Result<Vec<Abastecimento>, DbErr> {
@@ -35,7 +34,7 @@ impl AbastecimentoService {
             .await
     }
 
-    pub async fn localizar_abastecimento(&self, id: &str) -> Result<Option<Abastecimento>, DbErr> {
+    pub async fn localiza_abastecimento(&self, id: &str) -> Result<Option<Abastecimento>, DbErr> {
         let Ok(abastecimento_id) = Uuid::parse_str(id) else {
             return Ok(None);
         };
@@ -51,7 +50,8 @@ impl AbastecimentoService {
         pdv: &str,
         abastecimento_id: &str,
     ) -> ApiResponse<()> {
-        let (Ok(pdv_uuid), Ok(abast_uuid)) = (Uuid::parse_str(pdv), Uuid::parse_str(abastecimento_id))
+        let (Ok(pdv_uuid), Ok(abast_uuid)) =
+            (Uuid::parse_str(pdv), Uuid::parse_str(abastecimento_id))
         else {
             return ApiResponse::err("Pdv ou abastecimento inválido");
         };
@@ -78,7 +78,8 @@ impl AbastecimentoService {
         pdv: &str,
         abastecimento_id: &str,
     ) -> ApiResponse<()> {
-        let (Ok(pdv_uuid), Ok(abast_uuid)) = (Uuid::parse_str(pdv), Uuid::parse_str(abastecimento_id))
+        let (Ok(pdv_uuid), Ok(abast_uuid)) =
+            (Uuid::parse_str(pdv), Uuid::parse_str(abastecimento_id))
         else {
             return ApiResponse::err("Pdv ou abastecimento inválido");
         };

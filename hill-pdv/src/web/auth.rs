@@ -1,9 +1,9 @@
 use crate::web::service::response::ApiResponse;
+use axum::Json;
 use axum::extract::Request;
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::{HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 
 pub const AUTH_TOKEN: &str = "Bearer bf6ae367-6d9b-4ba6-acc7-ddc16008483a";
 

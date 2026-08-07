@@ -1,9 +1,9 @@
 use crate::web::service::response::ApiResponse;
-use crate::web::state::AppState;
 use crate::web::service::venda_item::{VendaItemPayload, VendaItemService};
+use crate::web::state::AppState;
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
 
 pub async fn lista_itens(
     State(state): State<AppState>,

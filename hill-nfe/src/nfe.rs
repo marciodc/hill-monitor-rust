@@ -1,5 +1,5 @@
-use std::ffi::{c_char, c_int, c_void, CString};
 use crate::bindings::NfeBindings;
+use std::ffi::{CString, c_char, c_int, c_void};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -13,10 +13,7 @@ pub enum AcBrNfeError {
     #[error("Erro ao carregar a biblioteca dinâmica: {0}")]
     LoadLibError(#[from] libloading::Error),
     #[error("Erro interno do ACBr (Código {code}): {message}")]
-    AcBr {
-        code: i32,
-        message: String,
-    },
+    AcBr { code: i32, message: String },
     #[error("Erro de conversão de string UTF-8/CString: {0}")]
     StringError(String),
 }
@@ -46,12 +43,13 @@ impl AcBrNfe {
         let bindings = unsafe { NfeBindings::load(lib_path)? };
         let mut handle: *mut c_void = std::ptr::null_mut();
 
-        let c_config = CString::new(arq_config).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
-        let c_crypt = CString::new(chave_crypt).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_config =
+            CString::new(arq_config).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_crypt =
+            CString::new(chave_crypt).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
 
-        let ret = unsafe {
-            (bindings.NFE_Inicializar)(&mut handle, c_config.as_ptr(), c_crypt.as_ptr())
-        };
+        let ret =
+            unsafe { (bindings.NFE_Inicializar)(&mut handle, c_config.as_ptr(), c_crypt.as_ptr()) };
 
         if ret < 0 {
             return Err(AcBrNfeError::AcBr {
@@ -133,7 +131,8 @@ impl AcBrNfe {
     }
 
     pub fn config_importar(&self, arq_config: &str) -> Result<(), AcBrNfeError> {
-        let c_config = CString::new(arq_config).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_config =
+            CString::new(arq_config).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let ret = unsafe { (self.bindings.NFE_ConfigImportar)(self.handle, c_config.as_ptr()) };
         self.check_result(ret)
     }
@@ -145,43 +144,65 @@ impl AcBrNfe {
     }
 
     pub fn config_ler(&self, arq_config: &str) -> Result<(), AcBrNfeError> {
-        let c_config = CString::new(arq_config).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_config =
+            CString::new(arq_config).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let ret = unsafe { (self.bindings.NFE_ConfigLer)(self.handle, c_config.as_ptr()) };
         self.check_result(ret)
     }
 
     pub fn config_gravar(&self, arq_config: &str) -> Result<(), AcBrNfeError> {
-        let c_config = CString::new(arq_config).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_config =
+            CString::new(arq_config).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let ret = unsafe { (self.bindings.NFE_ConfigGravar)(self.handle, c_config.as_ptr()) };
         self.check_result(ret)
     }
 
     pub fn config_ler_val(&self, sessao: &str, chave: &str) -> Result<String, AcBrNfeError> {
-        let c_sessao = CString::new(sessao).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_sessao =
+            CString::new(sessao).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let c_chave = CString::new(chave).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         self.process_string_ret(|buf, size| unsafe {
-            (self.bindings.NFE_ConfigLerValor)(self.handle, c_sessao.as_ptr(), c_chave.as_ptr(), buf, size)
+            (self.bindings.NFE_ConfigLerValor)(
+                self.handle,
+                c_sessao.as_ptr(),
+                c_chave.as_ptr(),
+                buf,
+                size,
+            )
         })
     }
 
-    pub fn config_gravar_val(&self, sessao: &str, chave: &str, valor: &str) -> Result<(), AcBrNfeError> {
-        let c_sessao = CString::new(sessao).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+    pub fn config_gravar_val(
+        &self,
+        sessao: &str,
+        chave: &str,
+        valor: &str,
+    ) -> Result<(), AcBrNfeError> {
+        let c_sessao =
+            CString::new(sessao).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let c_chave = CString::new(chave).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let c_valor = CString::new(valor).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let ret = unsafe {
-            (self.bindings.NFE_ConfigGravarValor)(self.handle, c_sessao.as_ptr(), c_chave.as_ptr(), c_valor.as_ptr())
+            (self.bindings.NFE_ConfigGravarValor)(
+                self.handle,
+                c_sessao.as_ptr(),
+                c_chave.as_ptr(),
+                c_valor.as_ptr(),
+            )
         };
         self.check_result(ret)
     }
 
     pub fn carregar_xml(&self, arquivo_ou_xml: &str) -> Result<(), AcBrNfeError> {
-        let c_xml = CString::new(arquivo_ou_xml).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_xml =
+            CString::new(arquivo_ou_xml).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let ret = unsafe { (self.bindings.NFE_CarregarXML)(self.handle, c_xml.as_ptr()) };
         self.check_result(ret)
     }
 
     pub fn carregar_ini(&self, arquivo_ou_ini: &str) -> Result<(), AcBrNfeError> {
-        let c_ini = CString::new(arquivo_ou_ini).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_ini =
+            CString::new(arquivo_ou_ini).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let ret = unsafe { (self.bindings.NFE_CarregarINI)(self.handle, c_ini.as_ptr()) };
         self.check_result(ret)
     }
@@ -192,11 +213,23 @@ impl AcBrNfe {
         })
     }
 
-    pub fn gravar_xml(&self, index: i32, nome_arquivo: &str, path_arquivo: &str) -> Result<(), AcBrNfeError> {
-        let c_nome = CString::new(nome_arquivo).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
-        let c_path = CString::new(path_arquivo).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+    pub fn gravar_xml(
+        &self,
+        index: i32,
+        nome_arquivo: &str,
+        path_arquivo: &str,
+    ) -> Result<(), AcBrNfeError> {
+        let c_nome =
+            CString::new(nome_arquivo).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_path =
+            CString::new(path_arquivo).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let ret = unsafe {
-            (self.bindings.NFE_GravarXml)(self.handle, index as c_int, c_nome.as_ptr(), c_path.as_ptr())
+            (self.bindings.NFE_GravarXml)(
+                self.handle,
+                index as c_int,
+                c_nome.as_ptr(),
+                c_path.as_ptr(),
+            )
         };
         self.check_result(ret)
     }
@@ -207,11 +240,23 @@ impl AcBrNfe {
         })
     }
 
-    pub fn gravar_ini(&self, index: i32, nome_arquivo: &str, path_arquivo: &str) -> Result<(), AcBrNfeError> {
-        let c_nome = CString::new(nome_arquivo).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
-        let c_path = CString::new(path_arquivo).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+    pub fn gravar_ini(
+        &self,
+        index: i32,
+        nome_arquivo: &str,
+        path_arquivo: &str,
+    ) -> Result<(), AcBrNfeError> {
+        let c_nome =
+            CString::new(nome_arquivo).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_path =
+            CString::new(path_arquivo).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let ret = unsafe {
-            (self.bindings.NFE_GravarIni)(self.handle, index as c_int, c_nome.as_ptr(), c_path.as_ptr())
+            (self.bindings.NFE_GravarIni)(
+                self.handle,
+                index as c_int,
+                c_nome.as_ptr(),
+                c_path.as_ptr(),
+            )
         };
         self.check_result(ret)
     }
@@ -247,8 +292,10 @@ impl AcBrNfe {
         emissao: &str,
         cpf_cnpj: &str,
     ) -> Result<String, AcBrNfeError> {
-        let c_emissao = CString::new(emissao).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
-        let c_cpf_cnpj = CString::new(cpf_cnpj).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_emissao =
+            CString::new(emissao).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_cpf_cnpj =
+            CString::new(cpf_cnpj).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
 
         self.process_string_ret(|buf, size| unsafe {
             (self.bindings.NFE_GerarChave)(
@@ -273,20 +320,40 @@ impl AcBrNfe {
         })
     }
 
-    pub fn consultar(&self, chave_ou_nfe: &str, extrair_eventos: bool) -> Result<String, AcBrNfeError> {
-        let c_chave = CString::new(chave_ou_nfe).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+    pub fn consultar(
+        &self,
+        chave_ou_nfe: &str,
+        extrair_eventos: bool,
+    ) -> Result<String, AcBrNfeError> {
+        let c_chave =
+            CString::new(chave_ou_nfe).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         self.process_string_ret(|buf, size| unsafe {
             (self.bindings.NFE_Consultar)(self.handle, c_chave.as_ptr(), extrair_eventos, buf, size)
         })
     }
 
-    pub fn cancelar(&self, chave: &str, justificativa: &str, cnpj: &str, lote: i32) -> Result<String, AcBrNfeError> {
+    pub fn cancelar(
+        &self,
+        chave: &str,
+        justificativa: &str,
+        cnpj: &str,
+        lote: i32,
+    ) -> Result<String, AcBrNfeError> {
         let c_chave = CString::new(chave).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
-        let c_just = CString::new(justificativa).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_just =
+            CString::new(justificativa).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
         let c_cnpj = CString::new(cnpj).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
 
         self.process_string_ret(|buf, size| unsafe {
-            (self.bindings.NFE_Cancelar)(self.handle, c_chave.as_ptr(), c_just.as_ptr(), c_cnpj.as_ptr(), lote as c_int, buf, size)
+            (self.bindings.NFE_Cancelar)(
+                self.handle,
+                c_chave.as_ptr(),
+                c_just.as_ptr(),
+                c_cnpj.as_ptr(),
+                lote as c_int,
+                buf,
+                size,
+            )
         })
     }
 
@@ -301,7 +368,8 @@ impl AcBrNfe {
         numero_final: i32,
     ) -> Result<String, AcBrNfeError> {
         let c_cnpj = CString::new(cnpj).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
-        let c_just = CString::new(justificativa).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
+        let c_just =
+            CString::new(justificativa).map_err(|e| AcBrNfeError::StringError(e.to_string()))?;
 
         self.process_string_ret(|buf, size| unsafe {
             (self.bindings.NFE_Inutilizar)(
@@ -319,9 +387,23 @@ impl AcBrNfe {
         })
     }
 
-    pub fn enviar(&self, lote: i32, imprimir: bool, sincrono: bool, zipado: bool) -> Result<String, AcBrNfeError> {
+    pub fn enviar(
+        &self,
+        lote: i32,
+        imprimir: bool,
+        sincrono: bool,
+        zipado: bool,
+    ) -> Result<String, AcBrNfeError> {
         self.process_string_ret(|buf, size| unsafe {
-            (self.bindings.NFE_Enviar)(self.handle, lote as c_int, imprimir, sincrono, zipado, buf, size)
+            (self.bindings.NFE_Enviar)(
+                self.handle,
+                lote as c_int,
+                imprimir,
+                sincrono,
+                zipado,
+                buf,
+                size,
+            )
         })
     }
 

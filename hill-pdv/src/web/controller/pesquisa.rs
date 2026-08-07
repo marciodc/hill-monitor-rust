@@ -1,9 +1,9 @@
 use crate::web::service::pesquisa::{PesquisaService, ProdutoPesquisaItem};
 use crate::web::service::response::ApiResponse;
 use crate::web::state::AppState;
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
 use hill_common::entity::{TabelaPreco, Usuario, Vendedor};
 use serde::Deserialize;
 
@@ -37,7 +37,10 @@ pub async fn pesquisa_usuario(
     Json(payload): Json<PesquisaUsuarioRequest>,
 ) -> (StatusCode, Json<ApiResponse<Vec<Usuario>>>) {
     let service = PesquisaService::new(state.db);
-    (StatusCode::OK, Json(service.pesquisa_usuario(payload.nome, payload.ids).await))
+    (
+        StatusCode::OK,
+        Json(service.pesquisa_usuario(payload.nome, payload.ids).await),
+    )
 }
 
 pub async fn pesquisa_vendedor(
@@ -47,7 +50,11 @@ pub async fn pesquisa_vendedor(
     let service = PesquisaService::new(state.db);
     (
         StatusCode::OK,
-        Json(service.pesquisa_vendedor(payload.nome, payload.codigo).await),
+        Json(
+            service
+                .pesquisa_vendedor(payload.nome, payload.codigo)
+                .await,
+        ),
     )
 }
 

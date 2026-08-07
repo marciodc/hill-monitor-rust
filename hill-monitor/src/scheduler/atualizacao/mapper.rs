@@ -68,6 +68,10 @@ fn parse_i32_f64(value: Option<f64>) -> i32 {
     value.map(|v| v.trunc() as i32).unwrap_or(0)
 }
 
+fn parse_i32(value: Option<&str>, default: i32) -> i32 {
+    value.and_then(|s| s.parse::<i32>().ok()).unwrap_or(default)
+}
+
 fn parse_decimal_opt_string(value: &Option<String>) -> Decimal {
     parse_decimal(value.as_deref())
 }
@@ -84,6 +88,249 @@ fn selected_pdvs<'a>(pdvs: &'a [NewPdv], pdv_uuid: Option<Uuid>) -> Vec<&'a NewP
     match pdv_uuid {
         Some(id) => pdvs.iter().filter(|pdv| pdv.pdv_uuid == id).collect(),
         None => pdvs.iter().collect(),
+    }
+}
+
+fn status_flag(active: bool) -> String {
+    if active {
+        "A".to_string()
+    } else {
+        "I".to_string()
+    }
+}
+
+fn produto_categoria(categoria_id: Option<i32>) -> Option<String> {
+    match categoria_id {
+        Some(1) => Some("C".to_string()),
+        Some(3) => Some("G".to_string()),
+        _ => Some("P".to_string()),
+    }
+}
+
+fn map_usuario(usuario: &NewUsuarioPdv) -> hill_common::entity::Usuario {
+    hill_common::entity::Usuario {
+        id: usuario.user_id,
+        status: ACTIVE_STATUS.to_string(),
+        nome: usuario.nome.clone(),
+        login: usuario
+            .login_pdv
+            .clone()
+            .unwrap_or_else(|| usuario.user_id.to_string()),
+        senha: usuario.senha_pdv_hash.clone().unwrap_or_default(),
+        rfid: None,
+        rfid_debito: None,
+        rfid_credito: None,
+        digital: None,
+        cartao_magnetico: None,
+        perc_max_desc_acres_item: Decimal::ZERO,
+        valor_max_desc_acres_item: Decimal::ZERO,
+        perc_max_desc_acres_subtotal: Decimal::ZERO,
+        valor_max_desc_acres_subtotal: Decimal::ZERO,
+    }
+}
+
+fn map_produto(produto: &NewProduto) -> hill_common::entity::Produto {
+    hill_common::entity::Produto {
+        id: produto.id,
+        tipo: Some(if produto.is_combustivel {
+            "C".to_string()
+        } else {
+            "P".to_string()
+        }),
+        categoria: produto_categoria(produto.categoria_id),
+        unidade_tributacao: None,
+        descricao: produto.nome.clone(),
+        descricao_resumida: None,
+        gtin_tributacao: produto.codigo_barras.clone(),
+        gtin_comercial: produto.codigo_barras.clone(),
+        unidade_comercial: None,
+        quantidade_tributacao: Decimal::ZERO,
+        ncm: produto.ncm.clone(),
+        ncm_excecao: None,
+        imposto_aliquota_importacao: Decimal::ZERO,
+        imposto_aliquota_federal: Decimal::ZERO,
+        imposto_aliquota_estadual: Decimal::ZERO,
+        imposto_aliquota_municipal: Decimal::ZERO,
+        imposto_chave: None,
+        tipo_codigo: 0,
+        codigo: Some(produto.codigo.clone()),
+        codigo_auxiliar: None,
+        indicador_producao: None,
+        fracionado: None,
+        pesado_caixa: None,
+        cst: produto.cst_icms_padrao.clone(),
+        cst_pis: produto.cst_pis.clone(),
+        cst_cofins: produto.cst_cofins.clone(),
+        observacao: None,
+        codigo_anp: 0,
+        descricao_anp: None,
+        solicita_vendedor: None,
+        grade_id: None,
+        controla_numero_serie: None,
+        controla_lote: None,
+        setor_impressao_1: None,
+        setor_impressao_2: None,
+        setor_impressao_3: None,
+        setor_impressao_4: None,
+        exclusivo_kit: None,
+        cest: produto.cest.clone(),
+        cfop: 0,
+        aliquota: parse_decimal_f64(produto.aliquota_icms_simples),
+        aliquota_cofins: parse_decimal_f64(produto.aliq_cofins_pct),
+        aliquota_pis: parse_decimal_f64(produto.aliq_pis_pct),
+        tipo_combustivel: parse_i32(produto.tipo_combustivel.as_deref(), 0),
+        etiqueta_balanca: None,
+        predbcefet: None,
+        picmsefet: None,
+        pfcpstret: None,
+        pfcpst: None,
+        pfcp: None,
+        modbc: None,
+        modbcst: None,
+        pmvast: None,
+        predbcst: None,
+        picmsst: None,
+        predbc: None,
+        pglp: None,
+        pgnn: None,
+        pgni: None,
+        vpart: None,
+    }
+}
+
+fn map_forma_pagamento(forma: &NewFormaPagamento) -> hill_common::entity::FormaPagamento {
+    hill_common::entity::FormaPagamento {
+        id: forma.id,
+        numero: forma.id,
+        tipo_pagamento: parse_i32(forma.nfce_tpag.as_deref(), 99),
+        descricao: forma.descricao.clone(),
+        valor_aviso_sangria: parse_decimal(forma.limite_sangria_aviso.as_deref()),
+        somente_cadastrados: tf_opt(forma.requer_cliente),
+        permite_troco: Some(TRUE_FLAG.to_string()),
+        permite_desconto: Some(TRUE_FLAG.to_string()),
+        permite_acrescimo: Some(TRUE_FLAG.to_string()),
+        dados_cheque: Some(FALSE_FLAG.to_string()),
+        dados_tef: tf_opt(forma.chama_tef),
+        maximo_parcelas: if forma.permite_parcelamento.unwrap_or(false) {
+            12
+        } else {
+            1
+        },
+        tef_rede: None,
+        tef_operacao: 0,
+        voucher: Some(FALSE_FLAG.to_string()),
+        ignora_limite_troco: Some(TRUE_FLAG.to_string()),
+        solicita_vencimento: Some(FALSE_FLAG.to_string()),
+        valida_limite_credito: Some(TRUE_FLAG.to_string()),
+        espelho: Some(FALSE_FLAG.to_string()),
+        dias_vencimento: None,
+        tipo_venda: Some(if forma.liquidacao.as_deref() == Some("aprazo") {
+            "P".to_string()
+        } else {
+            "V".to_string()
+        }),
+        tabela_id: 0,
+        permite_cheque_troco: Some(FALSE_FLAG.to_string()),
+        permite_deposito_troco: Some(FALSE_FLAG.to_string()),
+        percentual_maximo_troco: Decimal::ZERO,
+        percentual_desconto: Decimal::ZERO,
+        percentual_maximo_desconto: Decimal::ZERO,
+        venda_mobile: Some(FALSE_FLAG.to_string()),
+        troco_em_deposito: Some(FALSE_FLAG.to_string()),
+        vendas_com_juros_mobile: Some(FALSE_FLAG.to_string()),
+    }
+}
+
+fn map_setor(setor: &NewSetor) -> hill_common::entity::Setor {
+    hill_common::entity::Setor {
+        id: setor.id,
+        descricao: setor.nome.clone(),
+    }
+}
+
+fn map_tabela_preco(tabela: &NewTabelaPreco) -> hill_common::entity::TabelaPreco {
+    hill_common::entity::TabelaPreco {
+        id: tabela.id,
+        status: status_flag(tabela.ativo),
+        padrao: tf(tabela.id == 1),
+        descricao: tabela.nome.clone(),
+        exclusiva_cliente: Some(FALSE_FLAG.to_string()),
+    }
+}
+
+fn map_vendedor(frentista: &NewFrentista) -> hill_common::entity::Vendedor {
+    hill_common::entity::Vendedor {
+        id: frentista.id,
+        codigo: parse_i32(frentista.codigo_frentista.as_deref(), frentista.id),
+        nome: frentista.nome.clone(),
+    }
+}
+
+fn map_produto_setor(produto_setor: &NewProdutoSetor) -> hill_common::entity::ProdutoSetor {
+    hill_common::entity::ProdutoSetor {
+        id: produto_setor.id,
+        setor_id: produto_setor.setor_id,
+        produto_id: produto_setor.produto_id,
+    }
+}
+
+fn map_parceiro_dependente(
+    dependente: &NewClienteDependente,
+) -> Option<hill_common::entity::ParceiroDependente> {
+    let limite = parse_decimal(dependente.limite_credito.as_deref());
+    let saldo = parse_decimal(dependente.saldo_devedor.as_deref());
+
+    Some(hill_common::entity::ParceiroDependente {
+        id: dependente.id,
+        status: status_flag(dependente.ativo),
+        parceiro_id: dependente.cliente_id?,
+        nome: dependente.nome.clone(),
+        rfid: dependente.cartao_rfid.clone(),
+        limite_disponivel: positive_balance(limite, saldo),
+    })
+}
+
+fn map_parceiro_frota(frota: &NewClienteFrota) -> Option<hill_common::entity::ParceiroFrota> {
+    Some(hill_common::entity::ParceiroFrota {
+        id: frota.id,
+        status: status_flag(frota.ativo),
+        parceiro_id: frota.cliente_id?,
+        veiculo: frota.veiculo_descricao.clone().unwrap_or_default(),
+        placa: frota.placa.clone(),
+    })
+}
+
+fn map_parceiro_forma_pagamento(
+    forma: &NewClienteFormaPagamento,
+) -> Option<hill_common::entity::ParceiroFormaPagamento> {
+    Some(hill_common::entity::ParceiroFormaPagamento {
+        id: forma.id,
+        parceiro_id: forma.cliente_id?,
+        forma_pagamento_id: forma.forma_pagamento_id?,
+    })
+}
+
+fn map_parceiro_tabela_forma_pagamento(
+    forma_tabela: &NewClienteFormaPagamentoTabela,
+) -> Option<hill_common::entity::ParceiroTabelaFormaPagamento> {
+    Some(hill_common::entity::ParceiroTabelaFormaPagamento {
+        id: forma_tabela.id,
+        status: status_flag(forma_tabela.ativo),
+        parceiro_id: forma_tabela.cliente_id?,
+        forma_pagamento_id: forma_tabela.forma_pagamento_id?,
+        tabela_id: forma_tabela.tabela_id?,
+    })
+}
+
+fn map_tabela_preco_item(item: &NewTabelaPrecoItem) -> hill_common::entity::TabelaPrecoItem {
+    let preco = parse_decimal(item.preco_venda.as_deref());
+
+    hill_common::entity::TabelaPrecoItem {
+        id: item.id,
+        tabela_preco_id: item.tabela_id,
+        produto_id: item.produto_id,
+        valor_comercial: preco,
+        valor_tributacao: preco,
     }
 }
 
@@ -314,27 +561,15 @@ pub fn map_new_payload_to_sincronizacao(
     }
 
     if let Some(users_list) = &cadastros.usuarios_pdv {
-        let mut mapped_users = Vec::with_capacity(users_list.len());
-        for u in users_list {
-            mapped_users.push(hill_common::entity::Usuario::try_from(u).unwrap());
-        }
-        sinc.usuarios = Some(mapped_users);
+        sinc.usuarios = Some(users_list.iter().map(map_usuario).collect());
     }
 
     if let Some(prod_list) = &cadastros.produtos {
-        let mut mapped_prod = Vec::with_capacity(prod_list.len());
-        for p in prod_list {
-            mapped_prod.push(hill_common::entity::Produto::try_from(p).unwrap());
-        }
-        sinc.produtos = Some(mapped_prod);
+        sinc.produtos = Some(prod_list.iter().map(map_produto).collect());
     }
 
     if let Some(fp_list) = &cadastros.formas_pagamento {
-        let mut mapped_fp = Vec::with_capacity(fp_list.len());
-        for fp in fp_list {
-            mapped_fp.push(hill_common::entity::FormaPagamento::try_from(fp).unwrap());
-        }
-        sinc.moedas = Some(mapped_fp);
+        sinc.moedas = Some(fp_list.iter().map(map_forma_pagamento).collect());
     }
 
     if let Some(cli_list) = &cadastros.clientes {
@@ -395,11 +630,7 @@ pub fn map_new_payload_to_sincronizacao(
     }
 
     if let Some(set_list) = &cadastros.setores {
-        let mut mapped_set = Vec::with_capacity(set_list.len());
-        for s in set_list {
-            mapped_set.push(hill_common::entity::Setor::try_from(s).unwrap());
-        }
-        sinc.setores = Some(mapped_set);
+        sinc.setores = Some(set_list.iter().map(map_setor).collect());
     }
 
     if let Some(tanques_list) = &cadastros.tanques {
@@ -419,75 +650,46 @@ pub fn map_new_payload_to_sincronizacao(
     }
 
     if let Some(tp_list) = &cadastros.tabelas_preco {
-        let mut mapped_tp = Vec::with_capacity(tp_list.len());
-        for tp in tp_list {
-            mapped_tp.push(hill_common::entity::TabelaPreco::try_from(tp).unwrap());
-        }
-        sinc.tabela_precos = Some(mapped_tp);
+        sinc.tabela_precos = Some(tp_list.iter().map(map_tabela_preco).collect());
     }
 
     if let Some(f_list) = &cadastros.frentistas {
-        let mut mapped_vend = Vec::with_capacity(f_list.len());
-        for f in f_list {
-            mapped_vend.push(hill_common::entity::Vendedor::try_from(f).unwrap());
-        }
-        sinc.vendedores = Some(mapped_vend);
+        sinc.vendedores = Some(f_list.iter().map(map_vendedor).collect());
     }
 
     if let Some(ps_list) = &cadastros.produto_setores {
-        let mut mapped_ps = Vec::with_capacity(ps_list.len());
-        for ps in ps_list {
-            mapped_ps.push(hill_common::entity::ProdutoSetor::try_from(ps).unwrap());
-        }
-        sinc.produtos_setores = Some(mapped_ps);
+        sinc.produtos_setores = Some(ps_list.iter().map(map_produto_setor).collect());
     }
 
     if let Some(cd_list) = &cadastros.clientes_dependentes {
-        let mut mapped_cd = Vec::with_capacity(cd_list.len());
-        for cd in cd_list {
-            if let Ok(item) = hill_common::entity::ParceiroDependente::try_from(cd) {
-                mapped_cd.push(item);
-            }
-        }
-        sinc.parceiro_dependentes = Some(mapped_cd);
+        sinc.parceiro_dependentes =
+            Some(cd_list.iter().filter_map(map_parceiro_dependente).collect());
     }
 
     if let Some(cf_list) = &cadastros.clientes_frotas {
-        let mut mapped_cf = Vec::with_capacity(cf_list.len());
-        for cf in cf_list {
-            if let Ok(item) = hill_common::entity::ParceiroFrota::try_from(cf) {
-                mapped_cf.push(item);
-            }
-        }
-        sinc.parceiro_frotas = Some(mapped_cf);
+        sinc.parceiro_frotas = Some(cf_list.iter().filter_map(map_parceiro_frota).collect());
     }
 
     if let Some(cfp_list) = &cadastros.clientes_formas_pagamento {
-        let mut mapped_cfp = Vec::with_capacity(cfp_list.len());
-        for cfp in cfp_list {
-            if let Ok(item) = hill_common::entity::ParceiroFormaPagamento::try_from(cfp) {
-                mapped_cfp.push(item);
-            }
-        }
-        sinc.parceiro_formas_pagamento = Some(mapped_cfp);
+        sinc.parceiro_formas_pagamento = Some(
+            cfp_list
+                .iter()
+                .filter_map(map_parceiro_forma_pagamento)
+                .collect(),
+        );
     }
 
     if let Some(cfpt_list) = &cadastros.clientes_formas_pagamento_tabelas {
-        let mut mapped_cfpt = Vec::with_capacity(cfpt_list.len());
-        for cfpt in cfpt_list {
-            if let Ok(item) = hill_common::entity::ParceiroTabelaFormaPagamento::try_from(cfpt) {
-                mapped_cfpt.push(item);
-            }
-        }
-        sinc.parceiro_tabelas_formas_pagamento = Some(mapped_cfpt);
+        sinc.parceiro_tabelas_formas_pagamento = Some(
+            cfpt_list
+                .iter()
+                .filter_map(map_parceiro_tabela_forma_pagamento)
+                .collect(),
+        );
     }
 
     if let Some(tpi_list) = &cadastros.tabelas_preco_itens {
-        let mut mapped_tpi = Vec::with_capacity(tpi_list.len());
-        for tpi in tpi_list {
-            mapped_tpi.push(hill_common::entity::TabelaPrecoItem::try_from(tpi).unwrap());
-        }
-        sinc.tabelapreco_itens = Some(mapped_tpi);
+        sinc.tabelapreco_itens = Some(tpi_list.iter().map(map_tabela_preco_item).collect());
     }
 
     if let Some(users_list) = &cadastros.usuarios_pdv {

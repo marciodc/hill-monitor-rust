@@ -70,8 +70,8 @@ pub fn descriptografar_envelope_base64(
 
     let key = Key::<Aes256Gcm>::try_from(chave.as_slice())
         .map_err(|_| CertificadoError::ParametrosInvalidos)?;
-    let nonce = Nonce::try_from(nonce.as_slice())
-        .map_err(|_| CertificadoError::ParametrosInvalidos)?;
+    let nonce =
+        Nonce::try_from(nonce.as_slice()).map_err(|_| CertificadoError::ParametrosInvalidos)?;
     let cipher = Aes256Gcm::new(&key);
     let texto_puro = cipher
         .decrypt(&nonce, ciphertext_com_tag.as_ref())

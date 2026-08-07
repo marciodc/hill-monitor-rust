@@ -1,22 +1,31 @@
-use crate::web::{auth, controller};
 use crate::web::state::AppState;
+use crate::web::{auth, controller};
+use axum::Router;
 use axum::middleware;
 use axum::routing::{get, post};
-use axum::Router;
 use tower_http::cors::CorsLayer;
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
-        .route("/", get(|| async { "Hill.Monitor API in Rust is running!" }))
-        .route("/abastecimentos", get(controller::abastecimentos::listar_abastecimentos))
-        .route("/abastecimento", get(controller::abastecimentos::listar_abastecimentos))
+        .route(
+            "/",
+            get(|| async { "Hill.Monitor API in Rust is running!" }),
+        )
+        .route(
+            "/abastecimentos",
+            get(controller::abastecimentos::listar_abastecimentos),
+        )
+        .route(
+            "/abastecimento",
+            get(controller::abastecimentos::listar_abastecimentos),
+        )
         .route(
             "/abastecimento/{id}/user",
             get(controller::abastecimentos::listar_abastecimentos_usuario),
         )
         .route(
             "/abastecimento/{id}",
-            get(controller::abastecimentos::localizar_abastecimento),
+            get(controller::abastecimentos::localiza_abastecimento),
         )
         .route(
             "/abastecimento/{pdv}/{id}/seleciona",
@@ -43,12 +52,18 @@ pub fn create_router(state: AppState) -> Router {
             "/login/valida-usuario",
             post(controller::login::valida_usuario),
         )
-        .route("/pesquisa/usuario", post(controller::pesquisa::pesquisa_usuario))
+        .route(
+            "/pesquisa/usuario",
+            post(controller::pesquisa::pesquisa_usuario),
+        )
         .route(
             "/pesquisa/vendedor",
             post(controller::pesquisa::pesquisa_vendedor),
         )
-        .route("/pesquisa/produto", post(controller::pesquisa::pesquisa_produto))
+        .route(
+            "/pesquisa/produto",
+            post(controller::pesquisa::pesquisa_produto),
+        )
         .route(
             "/pesquisa/tabela_preco",
             post(controller::pesquisa::pesquisa_tabela_preco),

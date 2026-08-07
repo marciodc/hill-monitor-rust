@@ -4,8 +4,7 @@ use hill_common::entity::abastecimento;
 use hill_common::net::HttpConn;
 use rust_decimal::prelude::ToPrimitive;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder,
-    QuerySelect,
+    ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder, QuerySelect,
 };
 use tracing::{error, info};
 use uuid::Uuid;
@@ -95,12 +94,14 @@ pub async fn envia_abastecimentos(
         url
     );
 
-    match http.post_json_servidor(&url, &payload.to_string(), token).await {
+    match http
+        .post_json_servidor(&url, &payload.to_string(), token)
+        .await
+    {
         Ok(response_body) => {
             let mut ids_sucesso: Vec<Uuid> = Vec::new();
 
-            if let Ok(result) = serde_json::from_str::<AbastecimentosPushResponse>(&response_body)
-            {
+            if let Ok(result) = serde_json::from_str::<AbastecimentosPushResponse>(&response_body) {
                 if let Some(resultados) = result.resultados {
                     for r in resultados {
                         if r.ok {

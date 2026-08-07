@@ -80,7 +80,10 @@ impl VendaItemService {
             .await
             .unwrap_or_default();
 
-        let produtos = produto::Entity::find().all(&self.db).await.unwrap_or_default();
+        let produtos = produto::Entity::find()
+            .all(&self.db)
+            .await
+            .unwrap_or_default();
 
         let payload = itens
             .into_iter()

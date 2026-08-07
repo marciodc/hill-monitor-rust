@@ -1,7 +1,7 @@
 use crate::web::service::response::ApiResponse;
+use axum::Json;
 use axum::extract::Path;
 use axum::http::StatusCode;
-use axum::Json;
 
 pub async fn enviar_nfe(
     Path(numero_nota): Path<i32>,

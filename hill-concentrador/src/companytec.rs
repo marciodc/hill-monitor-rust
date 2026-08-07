@@ -28,11 +28,7 @@ impl Companytec {
     pub async fn visualiza_abastecimento(com: &ConcentradorCom) -> String {
         let ret = com.send_command("(&V)", true).await;
         let clean = ret.replace('(', "").replace(')', "");
-        if clean == "0" {
-            String::new()
-        } else {
-            clean
-        }
+        if clean == "0" { String::new() } else { clean }
     }
 
     pub async fn consulta_encerrante(com: &ConcentradorCom, bico: &str, decimais: i32) -> Decimal {
@@ -82,7 +78,12 @@ impl Companytec {
         ret == cod_bico
     }
 
-    pub async fn atualiza_preco(com: &ConcentradorCom, bico: &str, tipo: i32, valor: Decimal) -> bool {
+    pub async fn atualiza_preco(
+        com: &ConcentradorCom,
+        bico: &str,
+        tipo: i32,
+        valor: Decimal,
+    ) -> bool {
         // Format to 3 decimal places
         let valor_str = format!("{:.3}", valor);
         let numero_sem_ponto = valor_str.replace('.', "");
@@ -125,7 +126,10 @@ impl Companytec {
         let data_hora = match NaiveDateTime::parse_from_str(&data_hora_str, "%Y-%m-%dT%H:%M:%S") {
             Ok(dt) => dt,
             Err(e) => {
-                error!("Erro ao converter a data/hora do abastecimento {}: {:?}", data_hora_str, e);
+                error!(
+                    "Erro ao converter a data/hora do abastecimento {}: {:?}",
+                    data_hora_str, e
+                );
                 return None;
             }
         };

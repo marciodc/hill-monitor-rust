@@ -1,11 +1,11 @@
 use axum::{
+    Json,
     extract::Request,
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
-    Json,
 };
-use hill_common::event::{get_event_bus, TipoEvento};
+use hill_common::event::{TipoEvento, get_event_bus};
 use tracing::{error, info};
 
 use crate::web::auth;
@@ -20,7 +20,8 @@ pub async fn ws_handler(ws: WebSocketUpgrade, request: Request) -> Response {
             .into_response();
     }
 
-    ws.on_upgrade(|socket| handle_socket(socket)).into_response()
+    ws.on_upgrade(|socket| handle_socket(socket))
+        .into_response()
 }
 
 async fn handle_socket(mut socket: WebSocket) {

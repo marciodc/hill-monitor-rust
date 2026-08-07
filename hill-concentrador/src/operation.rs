@@ -1,9 +1,12 @@
 use crate::com::ConcentradorCom;
 use crate::companytec::Companytec;
 use chrono::Utc;
-use hill_common::entity::{abastecimento, bico, StatusBico};
+use hill_common::entity::{StatusBico, abastecimento, bico};
 use rust_decimal::Decimal;
-use sea_orm::{DatabaseConnection, ConnectionTrait, Statement, DbBackend, EntityTrait, QueryFilter, ColumnTrait, PaginatorTrait};
+use sea_orm::{
+    ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, PaginatorTrait,
+    QueryFilter, Statement,
+};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
@@ -32,7 +35,7 @@ impl ConcentradorOperacao {
                 let chars = ret.chars().collect::<Vec<char>>();
                 let mut i = 0;
                 while i + 2 <= chars.len() {
-                    let bico: String = chars[i..i+2].iter().collect();
+                    let bico: String = chars[i..i + 2].iter().collect();
                     active_retornos.push(bico);
                     i += 8;
                 }
@@ -64,9 +67,15 @@ impl ConcentradorOperacao {
         let mut bicos = Vec::new();
         for row in rows {
             let id: i32 = row.try_get("", "id").unwrap_or_default();
-            let retorno: String = row.try_get::<Option<String>>("", "retorno").unwrap_or_default().unwrap_or_default();
+            let retorno: String = row
+                .try_get::<Option<String>>("", "retorno")
+                .unwrap_or_default()
+                .unwrap_or_default();
             let numero: i32 = row.try_get("", "numero").unwrap_or_default();
-            let bloqueado_str: String = row.try_get::<Option<String>>("", "bloqueado").unwrap_or_default().unwrap_or_default();
+            let bloqueado_str: String = row
+                .try_get::<Option<String>>("", "bloqueado")
+                .unwrap_or_default()
+                .unwrap_or_default();
             let has_pending: bool = row.try_get("", "has_pending").unwrap_or_default();
             let pending_count: i64 = row.try_get("", "pending_count").unwrap_or_default();
 
@@ -155,13 +164,18 @@ impl ConcentradorOperacao {
                 use sea_orm::ActiveModelTrait;
                 let mut active_bico: bico::ActiveModel = b.into();
                 active_bico.altera_preco = sea_orm::ActiveValue::Set(Some("F".to_string()));
-                active_bico.sincroniza_preco_data_hora = sea_orm::ActiveValue::Set(Some(Utc::now().naive_utc()));
-                active_bico.sincroniza_preco_alterado = sea_orm::ActiveValue::Set(Some("T".to_string()));
+                active_bico.sincroniza_preco_data_hora =
+                    sea_orm::ActiveValue::Set(Some(Utc::now().naive_utc()));
+                active_bico.sincroniza_preco_alterado =
+                    sea_orm::ActiveValue::Set(Some("T".to_string()));
 
                 if let Err(e) = active_bico.update(db).await {
                     error!("Erro ao atualizar status do bico no banco: {:?}", e);
                 } else {
-                    info!("Preço do bico {} atualizado com sucesso no banco de dados.", retorno);
+                    info!(
+                        "Preço do bico {} atualizado com sucesso no banco de dados.",
+                        retorno
+                    );
                 }
             }
         }
@@ -184,7 +198,8 @@ impl ConcentradorOperacao {
                 let full_string = abast.full_string.clone().unwrap_or_default();
                 Self::adicionar_abastecimento_arquivo(&full_string);
 
-                if abast.quantidade < Decimal::new(1, 2) { // 0.01
+                if abast.quantidade < Decimal::new(1, 2) {
+                    // 0.01
                     self.move_ponteiro().await;
                     return;
                 }
@@ -227,7 +242,10 @@ impl ConcentradorOperacao {
                 if let Err(e) = active_abast.insert(db).await {
                     error!("Erro ao inserir abastecimento no banco de dados: {:?}", e);
                 } else {
-                    info!("Abastecimento capturado e inserido no banco: Bico {}", bico_numero);
+                    info!(
+                        "Abastecimento capturado e inserido no banco: Bico {}",
+                        bico_numero
+                    );
                     self.move_ponteiro().await;
                 }
             }
@@ -239,7 +257,10 @@ impl ConcentradorOperacao {
         let log_dir = Path::new("log");
         let _ = std::fs::create_dir_all(log_dir);
 
-        let file_name = log_dir.join(format!("abastecimentos-{}.log", current_time.format("%Y-%m-%d")));
+        let file_name = log_dir.join(format!(
+            "abastecimentos-{}.log",
+            current_time.format("%Y-%m-%d")
+        ));
         if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(file_name) {
             let _ = writeln!(file, "{}", abastecimento_line);
         }

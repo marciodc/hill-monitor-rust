@@ -1,7 +1,7 @@
 use crate::web::controller::login::{LoginResponse, LoginUser};
-use hill_common::entity::{configuracao, usuario, usuario_permissao, Usuario};
+use hill_common::entity::{Usuario, configuracao, usuario, usuario_permissao};
+use scrypt::{Params, scrypt};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use scrypt::{scrypt, Params};
 use tracing::error;
 
 pub struct LoginService {
@@ -129,7 +129,7 @@ impl LoginService {
             }
         }
         .as_deref()
-        == Some("T")
+            == Some("T")
     }
 }
 

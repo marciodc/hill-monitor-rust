@@ -1,7 +1,7 @@
 use crate::web::service::response::ApiResponse;
 use hill_common::entity::{
-    produto, produto_setor, tabela_preco, tabela_preco_item, usuario, vendedor, Produto,
-    TabelaPreco, Usuario, Vendedor,
+    Produto, TabelaPreco, Usuario, Vendedor, produto, produto_setor, tabela_preco,
+    tabela_preco_item, usuario, vendedor,
 };
 use rust_decimal::Decimal;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder};
@@ -131,7 +131,11 @@ impl PesquisaService {
 
         let mut query = produto::Entity::find()
             .filter(produto::Column::Id.is_in(produto_ids_setor))
-            .filter(produto::Column::ExclusivoKit.is_null().or(produto::Column::ExclusivoKit.ne("T")))
+            .filter(
+                produto::Column::ExclusivoKit
+                    .is_null()
+                    .or(produto::Column::ExclusivoKit.ne("T")),
+            )
             .filter(
                 produto::Column::GtinComercial
                     .contains(&busca)

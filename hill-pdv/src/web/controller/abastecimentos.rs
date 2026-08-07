@@ -1,16 +1,16 @@
 use crate::web::service::abastecimentos::AbastecimentoService;
 use crate::web::service::response::ApiResponse;
 use crate::web::state::AppState;
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
 use hill_common::entity::Abastecimento;
 
 pub async fn listar_abastecimentos(
     State(state): State<AppState>,
 ) -> (StatusCode, Json<Vec<Abastecimento>>) {
     let service = AbastecimentoService::new(state.db);
-    match service.listar_abastecimentos().await {
+    match service.lista_abastecimentos().await {
         Ok(abast) => (StatusCode::OK, Json(abast)),
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(Vec::new())),
     }
@@ -21,20 +21,23 @@ pub async fn listar_abastecimentos_usuario(
     Path(id): Path<String>,
 ) -> (StatusCode, Json<Vec<Abastecimento>>) {
     let service = AbastecimentoService::new(state.db);
-    match service.listar_abastecimentos_usuario(&id).await {
+    match service.lista_abastecimentos_usuario(&id).await {
         Ok(abast) => (StatusCode::OK, Json(abast)),
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(Vec::new())),
     }
 }
 
-pub async fn localizar_abastecimento(
+pub async fn localiza_abastecimento(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> (StatusCode, Json<ApiResponse<Abastecimento>>) {
     let service = AbastecimentoService::new(state.db);
-    match service.localizar_abastecimento(&id).await {
+    match service.localiza_abastecimento(&id).await {
         Ok(Some(abast)) => (StatusCode::OK, Json(ApiResponse::ok(abast))),
-        Ok(None) => (StatusCode::NOT_FOUND, Json(ApiResponse::err("Dados não localizados"))),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::err("Dados não localizados")),
+        ),
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ApiResponse::err("Erro ao buscar abastecimento.")),

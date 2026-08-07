@@ -1,8 +1,8 @@
 use crate::operation::ConcentradorOperacao;
 use sea_orm::DatabaseConnection;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::time::{interval, Duration};
+use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::time::{Duration, interval};
 use tracing::info;
 
 pub struct ConcentradorScheduler {
@@ -39,10 +39,11 @@ impl ConcentradorScheduler {
                 // Query status and update
                 let status = op.status_bicos(&db).await;
                 if let Ok(payload_str) = serde_json::to_string(&status) {
-                    let _ = hill_common::event::get_event_bus().send(hill_common::event::AppMessage {
-                        tipo: hill_common::event::TipoEvento::EvtStatusAbastecimento,
-                        mensagem: payload_str,
-                    });
+                    let _ =
+                        hill_common::event::get_event_bus().send(hill_common::event::AppMessage {
+                            tipo: hill_common::event::TipoEvento::EvtStatusAbastecimento,
+                            mensagem: payload_str,
+                        });
                 }
 
                 // Capture pump sales

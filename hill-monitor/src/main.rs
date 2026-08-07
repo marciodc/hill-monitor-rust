@@ -5,9 +5,9 @@ mod backend_url;
 mod config;
 mod scheduler;
 
+use fs2::FileExt;
 #[cfg(target_os = "linux")]
 use ksni::TrayMethods;
-use fs2::FileExt;
 use single_instance::SingleInstance;
 use std::env;
 use std::fs::{File, OpenOptions};

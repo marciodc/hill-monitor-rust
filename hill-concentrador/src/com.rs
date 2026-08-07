@@ -59,7 +59,10 @@ impl ConcentradorCom {
 
                         loop {
                             if start.elapsed() > timeout {
-                                warn!("Timeout aguardando resposta para o comando: {}", req.command);
+                                warn!(
+                                    "Timeout aguardando resposta para o comando: {}",
+                                    req.command
+                                );
                                 break;
                             }
 
@@ -113,7 +116,11 @@ impl ConcentradorCom {
         let req = CommandRequest {
             command,
             expect_response,
-            response_tx: if expect_response { Some(response_tx) } else { None },
+            response_tx: if expect_response {
+                Some(response_tx)
+            } else {
+                None
+            },
         };
 
         if let Err(e) = self.tx.send(req).await {
@@ -129,7 +136,8 @@ impl ConcentradorCom {
     }
 
     pub async fn send_command(&self, command: &str, expect_response: bool) -> String {
-        self.enqueue_command(command.to_string(), expect_response).await
+        self.enqueue_command(command.to_string(), expect_response)
+            .await
     }
 
     pub async fn request_status_bicos(&self) -> String {

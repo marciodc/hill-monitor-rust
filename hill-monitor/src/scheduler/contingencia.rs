@@ -4,8 +4,7 @@ use hill_common::config_helper::ConfigHelper;
 use hill_common::entity::venda;
 use hill_nfe::AcBrNfe;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    ExprTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, ExprTrait,
     PaginatorTrait, QueryFilter,
 };
 use std::sync::Arc;
